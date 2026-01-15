@@ -14,6 +14,9 @@
     <!-- Android 14+ 可能需要的权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Termux 运行指令权限 -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
     <application
         android:name=".MDNSServerApplication"
         android:allowBackup="true"

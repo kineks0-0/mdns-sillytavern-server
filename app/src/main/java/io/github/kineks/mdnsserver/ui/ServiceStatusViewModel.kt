@@ -15,35 +15,44 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 class ServiceStatusViewModel(application: Application) : AndroidViewModel(application) {
     private val workManager = WorkManager.getInstance(application)
     private val mdnsApplication = application as MDNSServerApplication
 
-    val serviceState: StateFlow<ServiceState> = workManager
-        .getWorkInfosForUniqueWorkFlow(WORK_NAME)
-        .map { workInfoList ->
-            val workInfo = workInfoList.firstOrNull()
-            if (workInfo != null && workInfo.state == WorkInfo.State.RUNNING) {
-                val progress = workInfo.progress
-                val ip = progress.getString(MDNSWorker.KEY_IP_ADDRESS)
-                val port = progress.getInt(MDNSWorker.KEY_PORT, 8080)
-                val serviceName = progress.getString(MDNSWorker.KEY_SERVICE_NAME) ?: "sillytavern"
-                ServiceState.Running(ip, port, serviceName)
-            } else {
-                ServiceState.Stopped
-            }
+    val serviceState: StateFlow<ServiceState> = combine(
+        workManager.getWorkInfosForUniqueWorkFlow(WORK_NAME),
+        mdnsApplication.getMDNSServiceRegistration().isRunning
+    ) { workInfoList, isRunning ->
+        val workInfo = workInfoList.firstOrNull()
+        if (workInfo != null && workInfo.state == WorkInfo.State.RUNNING) {
+            val progress = workInfo.progress
+            val ip = progress.getString(MDNSWorker.KEY_IP_ADDRESS)
+            val port = progress.getInt(MDNSWorker.KEY_PORT, 8080)
+            val serviceName = progress.getString(MDNSWorker.KEY_SERVICE_NAME) ?: "sillytavern"
+            ServiceState.Running(ip, port, serviceName)
+        } else if (isRunning) {
+            val ip = mdnsApplication.getLastUsedInterfaceIp()
+            val port = mdnsApplication.getLastUsedPort()
+            val serviceName = mdnsApplication.getLastUsedServiceName()
+            ServiceState.Running(ip, port, serviceName)
+        } else {
+            ServiceState.Stopped
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
 
     // Configuration state for UI
     private val _configurationState = MutableStateFlow(
         ConfigurationState(
             ipAddress = mdnsApplication.getLastUsedInterfaceIp(),
             port = mdnsApplication.getLastUsedPort(),
-            serviceName = mdnsApplication.getLastUsedServiceName()
+            serviceName = mdnsApplication.getLastUsedServiceName(),
+            priorityList = mdnsApplication.getInterfacePriorityList(),
+            termuxCommand = mdnsApplication.getTermuxCommand(),
+            showTermuxButton = mdnsApplication.getTermuxButtonEnabled()
         )
     )
     val configurationState = _configurationState.asStateFlow()
@@ -81,7 +90,37 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
         mdnsApplication.setLastUsedPort(port)
         mdnsApplication.setLastUsedServiceName(serviceName)
 
-        _configurationState.value = ConfigurationState(ip, port, serviceName)
+        updateConfigState()
+    }
+
+    fun savePriorityList(list: List<String>) {
+        mdnsApplication.setInterfacePriorityList(list)
+        updateConfigState()
+    }
+
+    fun saveTermuxSettings(command: String, showButton: Boolean) {
+        mdnsApplication.setTermuxCommand(command)
+        mdnsApplication.setTermuxButtonEnabled(showButton)
+        updateConfigState()
+    }
+
+    fun setTermuxSetupShown(shown: Boolean) {
+        mdnsApplication.setTermuxSetupShown(shown)
+    }
+
+    fun getTermuxSetupShown(): Boolean {
+        return mdnsApplication.getTermuxSetupShown()
+    }
+
+    private fun updateConfigState() {
+        _configurationState.value = ConfigurationState(
+            ipAddress = mdnsApplication.getLastUsedInterfaceIp(),
+            port = mdnsApplication.getLastUsedPort(),
+            serviceName = mdnsApplication.getLastUsedServiceName(),
+            priorityList = mdnsApplication.getInterfacePriorityList(),
+            termuxCommand = mdnsApplication.getTermuxCommand(),
+            showTermuxButton = mdnsApplication.getTermuxButtonEnabled()
+        )
     }
 
     fun getAvailableInterfaces(): List<NetworkInterfaceInfo> {
@@ -102,5 +141,8 @@ sealed class ServiceState {
 data class ConfigurationState(
     val ipAddress: String?,
     val port: Int,
-    val serviceName: String
+    val serviceName: String,
+    val priorityList: List<String>,
+    val termuxCommand: String,
+    val showTermuxButton: Boolean
 )

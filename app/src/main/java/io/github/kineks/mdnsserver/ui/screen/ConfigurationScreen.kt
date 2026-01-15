@@ -17,23 +17,31 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NetworkWifi
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,6 +62,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kineks.mdnsserver.NetworkInterfaceInfo
 import io.github.kineks.mdnsserver.ui.ServiceState
 import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
+import java.util.Collections
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,6 +167,22 @@ fun ConfigurationScreen(
                     onClick = { showInterfaceDialog = true }
                 )
             }
+
+            item {
+                PriorityListSection(
+                    priorityList = configState.priorityList,
+                    onUpdate = { viewModel.savePriorityList(it) }
+                )
+            }
+
+            item {
+                TermuxSettingsSection(
+                    command = configState.termuxCommand,
+                    showButton = configState.showTermuxButton,
+                    onUpdate = { cmd, show -> viewModel.saveTermuxSettings(cmd, show) },
+                    onResetSetup = { viewModel.setTermuxSetupShown(false) }
+                )
+            }
         }
     }
 
@@ -219,6 +244,147 @@ fun SettingsSectionTitle(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
     )
+}
+
+@Composable
+fun TermuxSettingsSection(
+    command: String,
+    showButton: Boolean,
+    onUpdate: (String, Boolean) -> Unit,
+    onResetSetup: () -> Unit
+) {
+    var commandInput by rememberSaveable { mutableStateOf(command) }
+
+    LaunchedEffect(command) {
+        if (commandInput != command) commandInput = command
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SettingsSectionTitle("Termux Integration")
+
+        SettingsTextField(
+            label = "Termux Command",
+            value = commandInput,
+            onValueChange = {
+                commandInput = it
+                onUpdate(it, showButton)
+            },
+            icon = Icons.Default.Code,
+            description = "Command to run in Termux (e.g. st)"
+        )
+
+        ListItem(
+            headlineContent = { Text("Show Start Button") },
+            supportingContent = { Text("Show 'Start Termux' button on Home screen") },
+            trailingContent = {
+                Switch(
+                    checked = showButton,
+                    onCheckedChange = { onUpdate(commandInput, it) }
+                )
+            }
+        )
+
+        ListItem(
+            headlineContent = { Text("Reset Setup Guide") },
+            supportingContent = { Text("Show the Termux setup instructions again next time") },
+            trailingContent = {
+                Button(onClick = onResetSetup) {
+                    Text("Reset")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun PriorityListSection(
+    priorityList: List<String>,
+    onUpdate: (List<String>) -> Unit
+) {
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SettingsSectionTitle("Network Interface Priority")
+
+        priorityList.forEachIndexed { index, item ->
+            ListItem(
+                headlineContent = { Text(item) },
+                trailingContent = {
+                    Row {
+                        if (index > 0) {
+                            IconButton(onClick = {
+                                val newList = priorityList.toMutableList()
+                                Collections.swap(newList, index, index - 1)
+                                onUpdate(newList)
+                            }) {
+                                Icon(Icons.Default.ArrowUpward, "Move Up")
+                            }
+                        }
+                        if (index < priorityList.size - 1) {
+                            IconButton(onClick = {
+                                val newList = priorityList.toMutableList()
+                                Collections.swap(newList, index, index + 1)
+                                onUpdate(newList)
+                            }) {
+                                Icon(Icons.Default.ArrowDownward, "Move Down")
+                            }
+                        }
+                        IconButton(onClick = {
+                            val newList = priorityList.toMutableList()
+                            newList.removeAt(index)
+                            onUpdate(newList)
+                        }) {
+                            Icon(Icons.Default.Delete, "Delete")
+                        }
+                    }
+                }
+            )
+        }
+
+        Button(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Add Priority Rule")
+        }
+    }
+
+    if (showAddDialog) {
+        var text by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Add Interface Prefix") },
+            text = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Prefix (e.g. tun, eth)") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (text.isNotBlank()) {
+                        val newList = priorityList.toMutableList()
+                        newList.add(text.trim())
+                        onUpdate(newList)
+                    }
+                    showAddDialog = false
+                }) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable

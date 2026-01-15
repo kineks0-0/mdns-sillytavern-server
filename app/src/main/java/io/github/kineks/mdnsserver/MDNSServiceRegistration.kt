@@ -2,6 +2,8 @@ package io.github.kineks.mdnsserver
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -23,6 +25,9 @@ class MDNSServiceRegistration {
     private var jmDNS: JmDNS? = null
     private val mutex = Mutex()
     private val TAG = "MDNSServiceRegistration"
+
+    private val _isRunning = MutableStateFlow(false)
+    val isRunning = _isRunning.asStateFlow()
 
     val jmDNSInstance get() = jmDNS
 
@@ -72,12 +77,14 @@ class MDNSServiceRegistration {
                         )
 
                         jmDNS?.registerService(serviceInfo)
+                        _isRunning.value = true
                         Log.i(TAG, "Registered service: $serviceName type: $serviceType on port: $port, address: ${inetAddress.hostAddress}")
                     } else {
                         Log.e(TAG, "Could not find a valid network interface for registration")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to register service: ${e.message}", e)
+                    _isRunning.value = false
                 }
             }
         }
@@ -90,6 +97,7 @@ class MDNSServiceRegistration {
         mutex.withLock {
             withContext(Dispatchers.IO) {
                 cleanupJmDNS()
+                _isRunning.value = false
             }
         }
     }
@@ -105,6 +113,11 @@ class MDNSServiceRegistration {
             }
         }
         jmDNS = null
+    }
+
+    private fun getPriorityList(): List<String> {
+        val app = MDNSServerApplication.getContext() as? MDNSServerApplication
+        return app?.getInterfacePriorityList() ?: emptyList()
     }
 
     /**
@@ -136,28 +149,25 @@ class MDNSServiceRegistration {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting network interfaces: ${e.message}", e)
         }
-        return interfaces
+
+        val priorityList = getPriorityList()
+        return interfaces.sortedBy { info ->
+            val idx = priorityList.indexOfFirst {
+                info.name.startsWith(it, ignoreCase = true) || info.displayName.startsWith(it, ignoreCase = true)
+            }
+            if (idx == -1) Int.MAX_VALUE else idx
+        }
     }
 
     private fun getFirstNonLoopbackAddress(): InetAddress? {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val netInterface = interfaces.nextElement()
-                if (netInterface.isLoopback || !netInterface.isUp) continue
-                
-                val addresses = netInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val address = addresses.nextElement()
-                    if (address is Inet4Address && !address.isLoopbackAddress) {
-                        return address
-                    }
-                }
-            }
+        val interfaces = getAvailableNetworkInterfaces()
+        val bestInterface = interfaces.firstOrNull() ?: return null
+        return try {
+            InetAddress.getByName(bestInterface.ipAddress)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting first non-loopback address: ${e.message}", e)
+            Log.e(TAG, "Error creating InetAddress from ${bestInterface.ipAddress}: ${e.message}")
+            null
         }
-        return null
     }
 
     fun isInitialized(): Boolean {

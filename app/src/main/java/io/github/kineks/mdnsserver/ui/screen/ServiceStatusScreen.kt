@@ -1,8 +1,10 @@
 package io.github.kineks.mdnsserver.ui.screen
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,8 +18,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,6 +38,10 @@ fun ServiceStatusScreen(
     viewModel: ServiceStatusViewModel = viewModel()
 ) {
     val serviceState by viewModel.serviceState.collectAsState()
+    val configState by viewModel.configurationState.collectAsState()
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    var showTermuxDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -60,6 +72,27 @@ fun ServiceStatusScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
+        if (configState.showTermuxButton) {
+            Button(
+                onClick = {
+                    if (viewModel.getTermuxSetupShown()) {
+                        launchTermux(context, configState.termuxCommand)
+                    } else {
+                        showTermuxDialog = true
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+            ) {
+                Icon(Icons.Default.PlayArrow, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Start Termux Command")
+            }
+        }
+
         // Action Button
         StartStopButton(
             isRunning = serviceState is ServiceState.Running,
@@ -71,6 +104,61 @@ fun ServiceStatusScreen(
                 }
             }
         )
+    }
+
+    if (showTermuxDialog) {
+        AlertDialog(
+            onDismissRequest = { showTermuxDialog = false },
+            title = { Text("Termux Configuration") },
+            text = {
+                Column {
+                    Text("To use this feature, you must enable external app access in Termux.")
+                    Spacer(Modifier.height(8.dp))
+                    Text("Run this command in Termux once:")
+                    Spacer(Modifier.height(8.dp))
+                    Card(modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)) {
+                        Text(
+                            text = "mkdir -p ~/.termux && echo \"allow-external-apps=true\" >> ~/.termux/termux.properties && termux-reload-settings",
+                            modifier = Modifier.padding(8.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setTermuxSetupShown(true)
+                    showTermuxDialog = false
+                    launchTermux(context, configState.termuxCommand)
+                }) {
+                    Text("I've done this")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    clipboardManager.setText(AnnotatedString("mkdir -p ~/.termux && echo \"allow-external-apps=true\" >> ~/.termux/termux.properties && termux-reload-settings"))
+                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                }) {
+                    Text("Copy Command")
+                }
+            }
+        )
+    }
+}
+
+fun launchTermux(context: android.content.Context, command: String) {
+    try {
+        val intent = android.content.Intent("com.termux.action.RUN_COMMAND")
+        intent.setClassName("com.termux", "com.termux.app.RunCommandService")
+        intent.putExtra("com.termux.action.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+        intent.putExtra("com.termux.action.RUN_COMMAND_ARGUMENTS", arrayOf("-l", "-c", command))
+        intent.putExtra("com.termux.action.RUN_COMMAND_BACKGROUND", false)
+        context.startService(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Failed to launch Termux: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }
 
