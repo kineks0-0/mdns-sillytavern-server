@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
@@ -177,14 +176,6 @@ fun ConfigurationScreen(
                 )
             }
 
-            item {
-                TermuxSettingsSection(
-                    command = configState.termuxCommand,
-                    showButton = configState.showTermuxButton,
-                    onUpdate = { cmd, show -> viewModel.saveTermuxSettings(cmd, show) },
-                    onResetSetup = { viewModel.setTermuxSetupShown(false) }
-                )
-            }
         }
     }
 
@@ -248,55 +239,6 @@ fun SettingsSectionTitle(title: String) {
     )
 }
 
-@Composable
-fun TermuxSettingsSection(
-    command: String,
-    showButton: Boolean,
-    onUpdate: (String, Boolean) -> Unit,
-    onResetSetup: () -> Unit
-) {
-    var commandInput by rememberSaveable { mutableStateOf(command) }
-
-    LaunchedEffect(command) {
-        if (commandInput != command) commandInput = command
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSectionTitle(stringResource(R.string.section_termux))
-
-        SettingsTextField(
-            label = stringResource(R.string.label_termux_command),
-            value = commandInput,
-            onValueChange = {
-                commandInput = it
-                onUpdate(it, showButton)
-            },
-            icon = Icons.Default.Code,
-            description = stringResource(R.string.desc_termux_command)
-        )
-
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.label_show_button)) },
-            supportingContent = { Text(stringResource(R.string.desc_show_button)) },
-            trailingContent = {
-                Switch(
-                    checked = showButton,
-                    onCheckedChange = { onUpdate(commandInput, it) }
-                )
-            }
-        )
-
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.label_reset_guide)) },
-            supportingContent = { Text(stringResource(R.string.desc_reset_guide)) },
-            trailingContent = {
-                Button(onClick = onResetSetup) {
-                    Text(stringResource(R.string.btn_reset))
-                }
-            }
-        )
-    }
-}
 
 @Composable
 fun PriorityListSection(

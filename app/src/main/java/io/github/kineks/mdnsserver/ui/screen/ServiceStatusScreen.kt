@@ -33,7 +33,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kineks.mdnsserver.R
 import io.github.kineks.mdnsserver.ui.ServiceState
 import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
-import com.termux.shared.termux.TermuxConstants
 
 @Composable
 fun ServiceStatusScreen(
@@ -41,10 +40,6 @@ fun ServiceStatusScreen(
     viewModel: ServiceStatusViewModel = viewModel()
 ) {
     val serviceState by viewModel.serviceState.collectAsState()
-    val configState by viewModel.configurationState.collectAsState()
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
-    var showTermuxDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -75,33 +70,6 @@ fun ServiceStatusScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        if (configState.showTermuxButton) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Button(
-                    onClick = {
-                        if (viewModel.getTermuxSetupShown()) {
-                            launchTermux(context, configState.termuxCommand)
-                        } else {
-                            showTermuxDialog = true
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                ) {
-                    Icon(Icons.Default.PlayArrow, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.btn_start_termux))
-                }
-
-                TextButton(onClick = { showTermuxDialog = true }) {
-                    Text(stringResource(R.string.termux_btn_setup_guide))
-                }
-            }
-        }
-
         // Action Button
         StartStopButton(
             isRunning = serviceState is ServiceState.Running,
@@ -113,61 +81,6 @@ fun ServiceStatusScreen(
                 }
             }
         )
-    }
-
-    if (showTermuxDialog) {
-        AlertDialog(
-            onDismissRequest = { showTermuxDialog = false },
-            title = { Text(stringResource(R.string.termux_dialog_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.termux_dialog_desc_1))
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.termux_dialog_desc_2))
-                    Spacer(Modifier.height(8.dp))
-                    Card(modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)) {
-                        Text(
-                            text = "mkdir -p ~/.termux && echo \"allow-external-apps=true\" >> ~/.termux/termux.properties && termux-reload-settings",
-                            modifier = Modifier.padding(8.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.setTermuxSetupShown(true)
-                    showTermuxDialog = false
-                    launchTermux(context, configState.termuxCommand)
-                }) {
-                    Text(stringResource(R.string.termux_btn_done))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    clipboardManager.setText(AnnotatedString("mkdir -p ~/.termux && echo \"allow-external-apps=true\" >> ~/.termux/termux.properties && termux-reload-settings"))
-                    Toast.makeText(context, stringResource(R.string.termux_toast_copied), Toast.LENGTH_SHORT).show()
-                }) {
-                    Text(stringResource(R.string.termux_btn_copy))
-                }
-            }
-        )
-    }
-}
-
-fun launchTermux(context: android.content.Context, command: String) {
-    try {
-        val intent = android.content.Intent(TermuxConstants.ACTION_RUN_COMMAND)
-        intent.setClassName(TermuxConstants.TERMUX_PACKAGE_NAME, "com.termux.app.RunCommandService")
-        intent.putExtra(TermuxConstants.EXTRA_RUN_COMMAND_PATH, "/data/data/com.termux/files/usr/bin/bash")
-        intent.putExtra(TermuxConstants.EXTRA_RUN_COMMAND_ARGUMENTS, arrayOf("-l", "-c", command))
-        intent.putExtra(TermuxConstants.EXTRA_RUN_COMMAND_BACKGROUND, false)
-        context.startService(intent)
-    } catch (e: Exception) {
-        Toast.makeText(context, context.getString(R.string.termux_toast_failed, e.message), Toast.LENGTH_LONG).show()
     }
 }
 

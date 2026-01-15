@@ -70,37 +70,4 @@ class MDNSServerApplication : Application() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         prefs.edit().putString("interface_priority_list", list.joinToString(",")).apply()
     }
-
-    // Termux Command
-    fun getTermuxCommand(): String {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        return prefs.getString("termux_command", "st") ?: "st"
-    }
-
-    fun setTermuxCommand(command: String) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        prefs.edit().putString("termux_command", command).apply()
-    }
-
-    // Termux Button Enabled
-    fun getTermuxButtonEnabled(): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        return prefs.getBoolean("show_termux_button", true)
-    }
-
-    fun setTermuxButtonEnabled(enabled: Boolean) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        prefs.edit().putBoolean("show_termux_button", enabled).apply()
-    }
-
-    // Termux Setup Shown
-    fun getTermuxSetupShown(): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        return prefs.getBoolean("termux_setup_shown", false)
-    }
-
-    fun setTermuxSetupShown(shown: Boolean) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        prefs.edit().putBoolean("termux_setup_shown", shown).apply()
-    }
 }

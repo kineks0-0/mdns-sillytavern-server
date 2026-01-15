@@ -52,9 +52,7 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
             ipAddress = mdnsApplication.getLastUsedInterfaceIp(),
             port = mdnsApplication.getLastUsedPort(),
             serviceName = mdnsApplication.getLastUsedServiceName(),
-            priorityList = mdnsApplication.getInterfacePriorityList(),
-            termuxCommand = mdnsApplication.getTermuxCommand(),
-            showTermuxButton = mdnsApplication.getTermuxButtonEnabled()
+            priorityList = mdnsApplication.getInterfacePriorityList()
         )
     )
     val configurationState = _configurationState.asStateFlow()
@@ -100,28 +98,12 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
         updateConfigState()
     }
 
-    fun saveTermuxSettings(command: String, showButton: Boolean) {
-        mdnsApplication.setTermuxCommand(command)
-        mdnsApplication.setTermuxButtonEnabled(showButton)
-        updateConfigState()
-    }
-
-    fun setTermuxSetupShown(shown: Boolean) {
-        mdnsApplication.setTermuxSetupShown(shown)
-    }
-
-    fun getTermuxSetupShown(): Boolean {
-        return mdnsApplication.getTermuxSetupShown()
-    }
-
     private fun updateConfigState() {
         _configurationState.value = ConfigurationState(
             ipAddress = mdnsApplication.getLastUsedInterfaceIp(),
             port = mdnsApplication.getLastUsedPort(),
             serviceName = mdnsApplication.getLastUsedServiceName(),
-            priorityList = mdnsApplication.getInterfacePriorityList(),
-            termuxCommand = mdnsApplication.getTermuxCommand(),
-            showTermuxButton = mdnsApplication.getTermuxButtonEnabled()
+            priorityList = mdnsApplication.getInterfacePriorityList()
         )
     }
 
@@ -144,7 +126,5 @@ data class ConfigurationState(
     val ipAddress: String?,
     val port: Int,
     val serviceName: String,
-    val priorityList: List<String>,
-    val termuxCommand: String,
-    val showTermuxButton: Boolean
+    val priorityList: List<String>
 )
