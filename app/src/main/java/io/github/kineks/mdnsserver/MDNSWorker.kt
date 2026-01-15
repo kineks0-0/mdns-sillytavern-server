@@ -96,7 +96,11 @@ class MDNSWorker(
 
         // Report progress
         val currentIp = mdnsServiceRegistration.jmDNSInstance?.inetAddress?.hostAddress ?: ipAddress
-        setProgress(androidx.work.workDataOf(KEY_IP_ADDRESS to currentIp, KEY_PORT to port))
+        setProgress(androidx.work.workDataOf(
+            KEY_IP_ADDRESS to currentIp,
+            KEY_PORT to port,
+            KEY_SERVICE_NAME to serviceName
+        ))
 
         // Update notification to reflect current state (or IP changes)
         notificationManager.notify(NOTIFICATION_ID, createNotification(serviceName, port, currentIp))

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.NetworkWifi
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
-import io.github.kineks.mdnsserver.ui.screen.NetworkInterfaceSelectorScreen
+import io.github.kineks.mdnsserver.ui.screen.ConfigurationScreen
 import io.github.kineks.mdnsserver.ui.screen.ServiceStatusScreen
 import io.github.kineks.mdnsserver.ui.theme.MdnsServerTheme
 
@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MdnsServerTheme {
-                MdnsServerApp(mdnsServiceRegistration)
+                MdnsServerApp()
             }
         }
     }
@@ -50,7 +50,6 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun MdnsServerApp(
-    mdnsServiceRegistration: MDNSServiceRegistration? = null,
     viewModel: ServiceStatusViewModel = viewModel()
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
@@ -78,9 +77,8 @@ fun MdnsServerApp(
                     modifier = Modifier.padding(innerPadding),
                     viewModel = viewModel
                 )
-                AppDestinations.NETWORK -> NetworkInterfaceSelectorScreen(
+                AppDestinations.SETTINGS -> ConfigurationScreen(
                     modifier = Modifier.padding(innerPadding),
-                    mdnsServiceRegistration = mdnsServiceRegistration,
                     viewModel = viewModel
                 )
             }
@@ -93,5 +91,5 @@ enum class AppDestinations(
     val icon: ImageVector,
 ) {
     HOME("Home", Icons.Default.Home),
-    NETWORK("Network", Icons.Default.NetworkWifi),
+    SETTINGS("Settings", Icons.Default.Settings),
 }
