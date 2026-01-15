@@ -33,6 +33,8 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
             val port = progress.getInt(MDNSWorker.KEY_PORT, 8080)
             val serviceName = progress.getString(MDNSWorker.KEY_SERVICE_NAME) ?: "sillytavern"
             ServiceState.Running(ip, port, serviceName)
+        } else if (workInfo != null && (workInfo.state == WorkInfo.State.CANCELLED || workInfo.state == WorkInfo.State.FAILED || workInfo.state == WorkInfo.State.SUCCEEDED)) {
+            ServiceState.Stopped
         } else if (isRunning) {
             val ip = mdnsApplication.getLastUsedInterfaceIp()
             val port = mdnsApplication.getLastUsedPort()

@@ -2,6 +2,7 @@ package io.github.kineks.mdnsserver
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -63,7 +64,9 @@ class MDNSServiceRegistration {
 
                         Log.i(TAG, "Creating JmDNS on ${inetAddress.hostAddress}")
                         // Create JmDNS instance
-                        jmDNS = JmDNS.create(inetAddress, serviceName)
+                        jmDNS = runInterruptible {
+                            JmDNS.create(inetAddress, serviceName)
+                        }
 
                         val txtRecords = txtRecord ?: mapOf("path" to "/")
 
@@ -76,7 +79,9 @@ class MDNSServiceRegistration {
                             txtRecords
                         )
 
-                        jmDNS?.registerService(serviceInfo)
+                        runInterruptible {
+                            jmDNS?.registerService(serviceInfo)
+                        }
                         _isRunning.value = true
                         Log.i(TAG, "Registered service: $serviceName type: $serviceType on port: $port, address: ${inetAddress.hostAddress}")
                     } else {

@@ -24,6 +24,7 @@
     <string name="termux_dialog_title">Termux Configuration</string>
     <string name="termux_dialog_desc_1">To use this feature, you must enable external app access in Termux.</string>
     <string name="termux_dialog_desc_2">Run this command in Termux once:</string>
+    <string name="termux_btn_setup_guide">Setup Guide</string>
     <string name="termux_btn_done">I\'ve done this</string>
     <string name="termux_btn_copy">Copy Command</string>
     <string name="termux_toast_copied">Copied to clipboard</string>
