@@ -24,6 +24,8 @@ class MDNSServiceRegistration {
     private val mutex = Mutex()
     private val TAG = "MDNSServiceRegistration"
 
+    val jmDNSInstance get() = jmDNS
+
     /**
      * Register sillytavern.local service.
      */

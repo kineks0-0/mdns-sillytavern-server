@@ -16,9 +16,9 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import androidx.work.awaitCancellation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 
 class MDNSWorker(
@@ -95,7 +95,7 @@ class MDNSWorker(
         )
 
         // Report progress
-        val currentIp = mdnsServiceRegistration.getJmDNSInstance()?.inetAddress?.hostAddress ?: ipAddress
+        val currentIp = mdnsServiceRegistration.jmDNSInstance?.inetAddress?.hostAddress ?: ipAddress
         setProgress(androidx.work.workDataOf(KEY_IP_ADDRESS to currentIp, KEY_PORT to port))
 
         // Update notification to reflect current state (or IP changes)
