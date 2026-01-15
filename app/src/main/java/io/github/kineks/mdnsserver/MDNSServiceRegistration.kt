@@ -1,7 +1,10 @@
 package io.github.kineks.mdnsserver
 
 import android.util.Log
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -18,77 +21,92 @@ data class NetworkInterfaceInfo(
 
 class MDNSServiceRegistration {
     private var jmDNS: JmDNS? = null
+    private val mutex = Mutex()
     private val TAG = "MDNSServiceRegistration"
 
     /**
-     * 注册sillytavern.local服务
-     * @param port 端口号
-     * @param txtRecord 附加信息
-     * @param ipAddress 特定IP地址，如果提供则使用此IP，否则自动选择
+     * Register sillytavern.local service.
      */
-    fun registerSillyTavernService(port: Int, txtRecord: Map<String, String>? = null, ipAddress: String? = null) {
-        CoroutineScope(Dispatchers.IO).launch {
-            registerSillyTavernServiceInternal(port, txtRecord, ipAddress)
-        }
+    suspend fun registerSillyTavernService(port: Int, txtRecord: Map<String, String>? = null, ipAddress: String? = null) {
+        registerCustomService("_http._tcp.local.", "sillytavern", port, txtRecord, ipAddress)
     }
 
     /**
-     * 内部方法，执行实际的注册逻辑
+     * Register a custom service.
      */
-    private fun registerSillyTavernServiceInternal(port: Int, txtRecord: Map<String, String>? = null, ipAddress: String? = null) {
-        try {
-            val inetAddress = if (ipAddress != null) {
-                InetAddress.getByName(ipAddress)
-            } else {
-                getFirstNonLoopbackAddress()
-            }
-            
-            if (inetAddress != null) {
-                // 关闭现有的JmDNS实例
-                jmDNS?.let {
-                    try {
-                        it.unregisterAllServices()
-                        it.close()
-                    } catch (e: IOException) {
-                        Log.e(TAG, "关闭旧的JmDNS实例时出错: ${e.message}")
+    suspend fun registerCustomService(
+        serviceType: String,
+        serviceName: String,
+        port: Int,
+        txtRecord: Map<String, String>? = null,
+        ipAddress: String? = null
+    ) {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                try {
+                    val inetAddress = if (ipAddress != null) {
+                        InetAddress.getByName(ipAddress)
+                    } else {
+                        getFirstNonLoopbackAddress()
                     }
+
+                    if (inetAddress != null) {
+                        // Close existing JmDNS instance
+                        cleanupJmDNS()
+
+                        Log.i(TAG, "Creating JmDNS on ${inetAddress.hostAddress}")
+                        // Create JmDNS instance
+                        jmDNS = JmDNS.create(inetAddress, serviceName)
+
+                        val txtRecords = txtRecord ?: mapOf("path" to "/")
+
+                        val serviceInfo = ServiceInfo.create(
+                            serviceType,
+                            serviceName,
+                            port,
+                            0,
+                            0,
+                            txtRecords
+                        )
+
+                        jmDNS?.registerService(serviceInfo)
+                        Log.i(TAG, "Registered service: $serviceName type: $serviceType on port: $port, address: ${inetAddress.hostAddress}")
+                    } else {
+                        Log.e(TAG, "Could not find a valid network interface for registration")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to register service: ${e.message}", e)
                 }
-                
-                // 创建JmDNS实例
-                jmDNS = JmDNS.create(inetAddress, "sillytavern")
-                
-                // 准备服务信息的TXT记录
-                val txtRecords = txtRecord ?: mapOf("path" to "/")
-
-                // 创建服务信息，使用_http._tcp协议，这样可以在浏览器中访问
-                val serviceInfo = ServiceInfo.create(
-                    "_http._tcp.local.",  // 服务类型
-                    "sillytavern",        // 服务名称（不包含.local.后缀，JmDNS会自动添加）
-                    port,                 // 端口
-                    0,                    // 优先级
-                    0,                    // 权重
-                    txtRecords            // 附加信息
-                )
-
-                // 注册服务
-                jmDNS!!.registerService(serviceInfo)
-
-                
-                println("已注册服务: ${jmDNS!!.name} 在端口: $port, 地址: ${inetAddress.hostAddress}")
-                Log.d(TAG, "已注册服务: ${jmDNS!!.name} 在端口: $port, 地址: ${inetAddress.hostAddress}")
-            } else {
-                Log.e(TAG, "无法找到有效的网络接口")
-                println("无法找到有效的网络接口")
             }
-        } catch (e: IOException) {
-            Log.e(TAG, "注册sillytavern服务失败: ${e.message}", e)
-            e.printStackTrace()
-            println("注册sillytavern服务失败: ${e.message}")
         }
     }
 
     /**
-     * 获取所有可用的网络接口列表
+     * Unregister all services and close JmDNS.
+     */
+    suspend fun unregisterAllServices() {
+        mutex.withLock {
+            withContext(Dispatchers.IO) {
+                cleanupJmDNS()
+            }
+        }
+    }
+
+    private fun cleanupJmDNS() {
+        jmDNS?.let {
+            try {
+                Log.d(TAG, "Unregistering services and closing JmDNS")
+                it.unregisterAllServices()
+                it.close()
+            } catch (e: IOException) {
+                Log.e(TAG, "Error closing JmDNS: ${e.message}")
+            }
+        }
+        jmDNS = null
+    }
+
+    /**
+     * Get list of available network interfaces.
      */
     fun getAvailableNetworkInterfaces(): List<NetworkInterfaceInfo> {
         val interfaces = mutableListOf<NetworkInterfaceInfo>()
@@ -96,15 +114,11 @@ class MDNSServiceRegistration {
             val networkInterfaces = NetworkInterface.getNetworkInterfaces()
             while (networkInterfaces.hasMoreElements()) {
                 val netInterface = networkInterfaces.nextElement()
-                
-                // 跳过回环和禁用的接口
                 if (netInterface.isLoopback || !netInterface.isUp) continue
                 
                 val addresses = netInterface.inetAddresses
                 while (addresses.hasMoreElements()) {
                     val address = addresses.nextElement()
-                    
-                    // 只使用IPv4地址
                     if (address is Inet4Address && !address.isLoopbackAddress) {
                         interfaces.add(
                             NetworkInterfaceInfo(
@@ -118,163 +132,33 @@ class MDNSServiceRegistration {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "获取网络接口列表时出错: ${e.message}", e)
-            e.printStackTrace()
+            Log.e(TAG, "Error getting network interfaces: ${e.message}", e)
         }
-        
         return interfaces
     }
 
-    /**
-     * 获取指定网络接口的IP地址
-     */
-    fun getIpAddressForInterface(interfaceName: String): String? {
-        try {
-            val netInterface = NetworkInterface.getByName(interfaceName)
-            if (netInterface != null && netInterface.isUp && !netInterface.isLoopback) {
-                val addresses = netInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val address = addresses.nextElement()
-                    if (address is Inet4Address && !address.isLoopbackAddress) {
-                        return address.hostAddress
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "获取指定网络接口IP时出错: ${e.message}", e)
-            e.printStackTrace()
-        }
-        
-        return null
-    }
-
-    /**
-     * 获取第一个非回环网络接口地址
-     */
     private fun getFirstNonLoopbackAddress(): InetAddress? {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val netInterface = interfaces.nextElement()
-                
-                // 跳过回环和禁用的接口
                 if (netInterface.isLoopback || !netInterface.isUp) continue
                 
                 val addresses = netInterface.inetAddresses
                 while (addresses.hasMoreElements()) {
                     val address = addresses.nextElement()
-                    
-                    // 只使用IPv4地址
                     if (address is Inet4Address && !address.isLoopbackAddress) {
-                        Log.d(TAG, "使用网络接口: ${netInterface.name}, IP: ${address.hostAddress}")
                         return address
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "获取第一个非回环地址时出错: ${e.message}", e)
-            e.printStackTrace()
+            Log.e(TAG, "Error getting first non-loopback address: ${e.message}", e)
         }
-        
         return null
     }
 
-    /**
-     * 注销所有服务并清理资源
-     */
-    fun unregisterAllServices() {
-        try {
-            jmDNS?.unregisterAllServices()
-            jmDNS?.close()
-            jmDNS = null
-            Log.d(TAG, "已注销所有mDNS服务")
-        } catch (e: IOException) {
-            Log.e(TAG, "注销服务时出错: ${e.message}", e)
-            e.printStackTrace()
-        }
-    }
-
-    /**
-     * 注册自定义服务类型
-     */
-    @OptIn(DelicateCoroutinesApi::class)
-    fun registerCustomService(
-        serviceType: String,
-        serviceName: String,
-        port: Int,
-        txtRecord: Map<String, String>? = null,
-        ipAddress: String? = null,
-        coroutineScope: CoroutineScope = GlobalScope
-    ) {
-        coroutineScope.launch {
-            withContext(Dispatchers.IO) {
-                registerCustomServiceInternal(serviceType, serviceName, port, txtRecord, ipAddress)
-            }
-        }
-    }
-
-    private fun registerCustomServiceInternal(
-        serviceType: String,
-        serviceName: String,
-        port: Int,
-        txtRecord: Map<String, String>? = null,
-        ipAddress: String? = null
-    ) {
-        try {
-            val inetAddress = if (ipAddress != null) {
-                InetAddress.getByName(ipAddress)
-            } else {
-                getFirstNonLoopbackAddress()
-            }
-            
-            if (inetAddress != null) {
-                // 关闭现有的JmDNS实例
-                jmDNS?.let {
-                    try {
-                        it.unregisterAllServices()
-                        it.close()
-                    } catch (e: IOException) {
-                        Log.e(TAG, "关闭旧的JmDNS实例时出错: ${e.message}")
-                    }
-                }
-                
-                jmDNS = JmDNS.create(inetAddress, serviceName)
-
-                val txtRecords = txtRecord ?: emptyMap()
-
-                val serviceInfo = ServiceInfo.create(
-                    serviceType,
-                    serviceName,
-                    port,
-                    0,
-                    0,
-                    txtRecords
-                )
-
-                jmDNS?.registerService(serviceInfo)
-                Log.d(TAG, "已注册服务: $serviceName 类型: $serviceType 在端口: $port, 地址: ${inetAddress.hostAddress}")
-                println("已注册服务: $serviceName 类型: $serviceType 在端口: $port, 地址: ${inetAddress.hostAddress}")
-            } else {
-                Log.e(TAG, "无法找到有效的网络接口用于自定义服务注册")
-            }
-        } catch (e: IOException) {
-            Log.e(TAG, "注册自定义服务失败: ${e.message}", e)
-            e.printStackTrace()
-            println("注册服务失败: ${e.message}")
-        }
-    }
-    
-    /**
-     * 检查JmDNS实例是否已初始化
-     */
     fun isInitialized(): Boolean {
         return jmDNS != null
-    }
-    
-    /**
-     * 获取当前JmDNS实例
-     */
-    fun getJmDNSInstance(): JmDNS? {
-        return jmDNS
     }
 }

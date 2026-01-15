@@ -21,9 +21,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import io.github.kineks.mdnsserver.ui.theme.MdnsServerTheme
+import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
 import io.github.kineks.mdnsserver.ui.screen.NetworkInterfaceSelectorScreen
 import io.github.kineks.mdnsserver.ui.screen.ServiceStatusScreen
+import io.github.kineks.mdnsserver.ui.theme.MdnsServerTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var mdnsServiceRegistration: MDNSServiceRegistration
@@ -32,27 +34,25 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 从应用程序获取mDNS服务注册器
+        // Get Application and ServiceRegistration
         mdnsServerApplication = application as MDNSServerApplication
         mdnsServiceRegistration = mdnsServerApplication.getMDNSServiceRegistration()
         
         enableEdgeToEdge()
         setContent {
             MdnsServerTheme {
-                MdnsServerApp(mdnsServiceRegistration, mdnsServerApplication)
+                MdnsServerApp(mdnsServiceRegistration)
             }
         }
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        // 不再在这里清理服务，因为服务在后台运行
     }
 }
 
 @PreviewScreenSizes
 @Composable
-fun MdnsServerApp(mdnsServiceRegistration: MDNSServiceRegistration? = null, mdnsServerApplication: MDNSServerApplication? = null) {
+fun MdnsServerApp(
+    mdnsServiceRegistration: MDNSServiceRegistration? = null,
+    viewModel: ServiceStatusViewModel = viewModel()
+) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
     NavigationSuiteScaffold(
@@ -76,12 +76,12 @@ fun MdnsServerApp(mdnsServiceRegistration: MDNSServiceRegistration? = null, mdns
             when(currentDestination) {
                 AppDestinations.HOME -> ServiceStatusScreen(
                     modifier = Modifier.padding(innerPadding),
-                    mdnsServiceRegistration = mdnsServiceRegistration
+                    viewModel = viewModel
                 )
                 AppDestinations.NETWORK -> NetworkInterfaceSelectorScreen(
                     modifier = Modifier.padding(innerPadding),
                     mdnsServiceRegistration = mdnsServiceRegistration,
-                    mdnsServerApplication = mdnsServerApplication
+                    viewModel = viewModel
                 )
             }
         }
@@ -95,7 +95,3 @@ enum class AppDestinations(
     HOME("Home", Icons.Default.Home),
     NETWORK("Network", Icons.Default.NetworkWifi),
 }
-
-
-
-

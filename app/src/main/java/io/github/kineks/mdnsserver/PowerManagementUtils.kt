@@ -10,13 +10,14 @@ class PowerManagementUtils(private val context: Context) {
     private val TAG = "PowerManagementUtils"
 
     companion object {
-        private const val WAKE_LOCK_TIMEOUT = 30 * 60 * 1000L // 30分钟超时
+        const val WAKE_LOCK_TIMEOUT_30_MIN = 30 * 60 * 1000L // 30 minutes
     }
 
     /**
-     * 获取唤醒锁，保持CPU运行以处理mDNS请求
+     * Acquire a wake lock to keep the CPU running.
+     * @param timeout Optional timeout in milliseconds. If null, acquires indefinitely.
      */
-    fun acquireWakeLock() {
+    fun acquireWakeLock(timeout: Long? = null) {
         if (wakeLock == null) {
             wakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
@@ -25,24 +26,32 @@ class PowerManagementUtils(private val context: Context) {
         }
 
         if (!wakeLock!!.isHeld) {
-            Log.d(TAG, "获取唤醒锁以保持服务运行")
-            wakeLock!!.acquire(WAKE_LOCK_TIMEOUT)
+            Log.d(TAG, "Acquiring wake lock (timeout: ${timeout ?: "infinite"})")
+            if (timeout != null) {
+                wakeLock!!.acquire(timeout)
+            } else {
+                wakeLock!!.acquire()
+            }
         }
     }
 
     /**
-     * 释放唤醒锁
+     * Release the wake lock.
      */
     fun releaseWakeLock() {
         if (wakeLock != null && wakeLock!!.isHeld) {
-            Log.d(TAG, "释放唤醒锁")
-            wakeLock!!.release()
+            Log.d(TAG, "Releasing wake lock")
+            try {
+                wakeLock!!.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing wake lock: ${e.message}")
+            }
         }
         wakeLock = null
     }
 
     /**
-     * 检查是否持有唤醒锁
+     * Check if the wake lock is held.
      */
     fun isWakeLockHeld(): Boolean {
         return wakeLock?.isHeld ?: false

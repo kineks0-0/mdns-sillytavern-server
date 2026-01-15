@@ -12,75 +12,70 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.preference.PreferenceManager
-import io.github.kineks.mdnsserver.MDNSServerApplication
-import io.github.kineks.mdnsserver.MDNSService
 import io.github.kineks.mdnsserver.MDNSServiceRegistration
 import io.github.kineks.mdnsserver.NetworkInterfaceInfo
+import io.github.kineks.mdnsserver.ui.ServiceState
+import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
 
 /**
- * 网络接口选择器屏幕
+ * Network Interface Selector Screen
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NetworkInterfaceSelectorScreen(
     mdnsServiceRegistration: MDNSServiceRegistration?,
-    mdnsServerApplication: MDNSServerApplication?,
+    viewModel: ServiceStatusViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var selectedInterface by remember { mutableStateOf<NetworkInterfaceInfo?>(null) }
     var availableInterfaces by remember { mutableStateOf(emptyList<NetworkInterfaceInfo>()) }
     var port by rememberSaveable { mutableStateOf("8080") }
-    var serviceStarted by rememberSaveable { mutableStateOf(mdnsServerApplication?.isServiceRunning(MDNSService::class.java) ?: false) }
 
-    // 监听服务状态变化
-    DisposableEffect(mdnsServerApplication) {
-        val updateServiceStatus = {
-            serviceStarted = mdnsServerApplication?.isServiceRunning(MDNSService::class.java) ?: false
-        }
-        updateServiceStatus()
-
-        onDispose { }
-    }
+    val serviceState by viewModel.serviceState.collectAsState()
+    val isRunning = serviceState is ServiceState.Running
+    val context = LocalContext.current
 
     Surface(modifier = modifier) {
         if (mdnsServiceRegistration != null) {
-            val context = androidx.compose.ui.platform.LocalContext.current
 
-            // 尝试自动选择上次使用的接口
+            // Try to auto-select last used interface
             LaunchedEffect(Unit) {
                 availableInterfaces = mdnsServiceRegistration.getAvailableNetworkInterfaces()
-                if (mdnsServerApplication != null) {
-                    // 从Application获取上次保存的接口信息
-                    val lastUsedIp = mdnsServerApplication.getLastUsedInterfaceIp()
-                    val lastUsedPort = mdnsServerApplication.getLastUsedPort()
+                val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+                val lastUsedIp = prefs.getString("last_used_ip", null)
+                val lastUsedPort = prefs.getInt("last_used_port", 8080)
 
-                    if (lastUsedIp != null) {
-                        val savedInterface = availableInterfaces.find { it.ipAddress == lastUsedIp }
-                        if (savedInterface != null) {
-                            selectedInterface = savedInterface
-                            port = lastUsedPort.toString()
-                        }
+                if (lastUsedIp != null) {
+                    val savedInterface = availableInterfaces.find { it.ipAddress == lastUsedIp }
+                    if (savedInterface != null) {
+                        selectedInterface = savedInterface
+                        port = lastUsedPort.toString()
                     }
+                } else {
+                     port = lastUsedPort.toString()
                 }
             }
+
             Column(modifier = Modifier.padding(16.dp)) {
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
                 ) {
                     TextField(
-                        value = selectedInterface?.displayName ?: "选择网络接口",
+                        value = selectedInterface?.displayName ?: "Auto (Default)",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = {
@@ -93,6 +88,15 @@ fun NetworkInterfaceSelectorScreen(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
+                        // Option for Auto
+                        DropdownMenuItem(
+                            text = { Text("Auto (Default)") },
+                            onClick = {
+                                selectedInterface = null
+                                expanded = false
+                            }
+                        )
+
                         availableInterfaces.forEach { interfaceInfo ->
                             DropdownMenuItem(
                                 text = {
@@ -110,55 +114,44 @@ fun NetworkInterfaceSelectorScreen(
                 TextField(
                     value = port,
                     onValueChange = { port = it },
-                    label = { Text("端口") },
-                    modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                    label = { Text("Port") },
+                    modifier = Modifier.padding(top = 16.dp)
                 )
 
                 Button(
                     onClick = {
-                        if (selectedInterface != null) {
-                            serviceStarted = true
-                            if (mdnsServerApplication == null) {
-                                serviceStarted = false
-                                return@Button
-                            }
-                            // 启动后台服务而不是直接注册
-                            mdnsServerApplication.startMDNSService(
-                                port = port.toIntOrNull() ?: 8080,
-                                ipAddress = selectedInterface!!.ipAddress,
-                                serviceName = "sillytavern"
-                            )
+                        // Save preferences
+                        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+                        prefs.edit()
+                            .putString("last_used_ip", selectedInterface?.ipAddress) // null for auto
+                            .putInt("last_used_port", port.toIntOrNull() ?: 8080)
+                            .apply()
 
-                            // 保存当前选择
-                            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-                            prefs.edit()
-                                .putString("last_used_ip", selectedInterface!!.ipAddress)
-                                .putInt("last_used_port", port.toIntOrNull() ?: 8080)
-                                .apply()
-
-                        }
+                        // Restart or Start
+                        viewModel.startServer()
                     },
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(top = 16.dp)
                 ) {
-                    Text(if (!(mdnsServerApplication?.isServiceRunning(MDNSService::class.java) ?: false)) "启动后台服务" else "重启服务")
+                    Text(if (isRunning) "Restart Service" else "Start Service")
                 }
 
-                Button(
-                    onClick = {
-                        mdnsServerApplication?.stopMDNSService()
-                    },
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp)
-                ) {
-                    Text("停止服务")
+                if (isRunning) {
+                    Button(
+                        onClick = {
+                            viewModel.stopServer()
+                        },
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text("Stop Service")
+                    }
                 }
 
-                // 显示当前状态
+                // Show status
                 Text(
-                    text = if (serviceStarted) "服务正在后台运行" else "服务未运行",
-                    modifier = Modifier.padding(16.dp)
+                    text = if (isRunning) "Service is running in background" else "Service is stopped",
+                    modifier = Modifier.padding(top = 16.dp)
                 )
             }
-
         }
     }
 }
