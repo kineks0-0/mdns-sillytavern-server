@@ -1,50 +1,43 @@
 package io.github.kineks.mdnsserver.ui
 
 import android.app.Application
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkInfo
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import io.github.kineks.mdnsserver.MDNSServerApplication
-import io.github.kineks.mdnsserver.MDNSWorker
+import io.github.kineks.mdnsserver.MDNSService
 import io.github.kineks.mdnsserver.NetworkInterfaceInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 class ServiceStatusViewModel(application: Application) : AndroidViewModel(application) {
-    private val workManager = WorkManager.getInstance(application)
     private val mdnsApplication = application as MDNSServerApplication
 
-    val serviceState: StateFlow<ServiceState> = combine(
-        workManager.getWorkInfosForUniqueWorkFlow(WORK_NAME),
-        mdnsApplication.getMDNSServiceRegistration().isRunning
-    ) { workInfoList, isRunning ->
-        val workInfo = workInfoList.firstOrNull()
-        if (workInfo != null && workInfo.state == WorkInfo.State.RUNNING) {
-            val progress = workInfo.progress
-            val ip = progress.getString(MDNSWorker.KEY_IP_ADDRESS)
-            val port = progress.getInt(MDNSWorker.KEY_PORT, 8080)
-            val serviceName = progress.getString(MDNSWorker.KEY_SERVICE_NAME) ?: "sillytavern"
-            ServiceState.Running(ip, port, serviceName)
-        } else if (workInfo != null && (workInfo.state == WorkInfo.State.CANCELLED || workInfo.state == WorkInfo.State.FAILED || workInfo.state == WorkInfo.State.SUCCEEDED)) {
-            ServiceState.Stopped
-        } else if (isRunning) {
-            val ip = mdnsApplication.getLastUsedInterfaceIp()
-            val port = mdnsApplication.getLastUsedPort()
-            val serviceName = mdnsApplication.getLastUsedServiceName()
-            ServiceState.Running(ip, port, serviceName)
-        } else {
-            ServiceState.Stopped
+    val serviceState: StateFlow<ServiceState> = mdnsApplication.getMDNSServiceRegistration().isRunning
+        .map { isRunning ->
+            if (isRunning) {
+                // Since we don't have direct access to the active IP/Port from the Service here easily without binding or shared prefs/bus,
+                // we fall back to the "last used" or re-querying registration if we exposed it.
+                // For now, assuming successful start uses the configured values is "okay" but strictly we should query the service.
+                // Ideally MDNSServiceRegistration would expose the current run config.
+                // However, MDNSServiceRegistration stores the JmDNS instance which has the address.
+
+                val jmdns = mdnsApplication.getMDNSServiceRegistration().jmDNSInstance
+                val ip = jmdns?.inetAddress?.hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
+                val port = mdnsApplication.getLastUsedPort() // This is approximate if changed while running but acceptable for now
+                val serviceName = mdnsApplication.getLastUsedServiceName()
+
+                ServiceState.Running(ip, port, serviceName)
+            } else {
+                ServiceState.Stopped
+            }
         }
-    }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
 
     // Configuration state for UI
     private val _configurationState = MutableStateFlow(
@@ -58,31 +51,25 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
     val configurationState = _configurationState.asStateFlow()
 
     fun startServer() {
-        // Reload settings from prefs just in case, or trust the UI updated prefs via saveConfiguration
         val port = mdnsApplication.getLastUsedPort()
         val serviceName = mdnsApplication.getLastUsedServiceName()
         val ipAddress = mdnsApplication.getLastUsedInterfaceIp()
 
-        val data = workDataOf(
-            MDNSWorker.KEY_PORT to port,
-            MDNSWorker.KEY_IP_ADDRESS to ipAddress,
-            MDNSWorker.KEY_SERVICE_NAME to serviceName
-        )
+        val intent = Intent(getApplication(), MDNSService::class.java).apply {
+            action = MDNSService.ACTION_START
+            putExtra(MDNSService.KEY_PORT, port)
+            putExtra(MDNSService.KEY_IP_ADDRESS, ipAddress)
+            putExtra(MDNSService.KEY_SERVICE_NAME, serviceName)
+        }
 
-        val workRequest = OneTimeWorkRequestBuilder<MDNSWorker>()
-            .setInputData(data)
-            .addTag(WORK_TAG)
-            .build()
-
-        workManager.enqueueUniqueWork(
-            WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
-            workRequest
-        )
+        ContextCompat.startForegroundService(getApplication(), intent)
     }
 
     fun stopServer() {
-        workManager.cancelUniqueWork(WORK_NAME)
+        val intent = Intent(getApplication(), MDNSService::class.java).apply {
+            action = MDNSService.ACTION_STOP
+        }
+        getApplication<Application>().startService(intent)
     }
 
     fun saveConfiguration(ip: String?, port: Int, serviceName: String) {
@@ -109,11 +96,6 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
 
     fun getAvailableInterfaces(): List<NetworkInterfaceInfo> {
         return mdnsApplication.getMDNSServiceRegistration().getAvailableNetworkInterfaces()
-    }
-
-    companion object {
-        const val WORK_NAME = "mdns_service_work"
-        const val WORK_TAG = "mdns_service"
     }
 }
 

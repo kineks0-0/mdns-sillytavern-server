@@ -3,6 +3,7 @@ package io.github.kineks.mdnsserver
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -11,84 +12,123 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.work.CoroutineWorker
-import androidx.work.ForegroundInfo
-import androidx.work.WorkerParameters
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-class MDNSWorker(
-    context: Context,
-    parameters: WorkerParameters
-) : CoroutineWorker(context, parameters) {
+class MDNSService : Service() {
 
-    private val notificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val powerManagementUtils = PowerManagementUtils(context)
-    private val mdnsServiceRegistration =
-        (context.applicationContext as MDNSServerApplication).getMDNSServiceRegistration()
-
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var powerManagementUtils: PowerManagementUtils
+    private lateinit var mdnsServiceRegistration: MDNSServiceRegistration
+    private lateinit var connectivityManager: ConnectivityManager
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private var isStarted = false
 
     companion object {
-        const val CHANNEL_ID = "MDNSServiceChannel"
-        const val NOTIFICATION_ID = 1
-        const val TAG = "MDNSWorker"
+        const val ACTION_START = "io.github.kineks.mdnsserver.action.START"
+        const val ACTION_STOP = "io.github.kineks.mdnsserver.action.STOP"
 
         const val KEY_PORT = "port"
         const val KEY_IP_ADDRESS = "ip_address"
         const val KEY_SERVICE_NAME = "service_name"
+
+        const val CHANNEL_ID = "MDNSServiceChannel"
+        const val NOTIFICATION_ID = 1
+        const val TAG = "MDNSService"
     }
 
-    override suspend fun doWork(): Result {
-        val port = inputData.getInt(KEY_PORT, 8080)
-        val ipAddress = inputData.getString(KEY_IP_ADDRESS)
-        val serviceName = inputData.getString(KEY_SERVICE_NAME) ?: "sillytavern"
+    override fun onCreate() {
+        super.onCreate()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        powerManagementUtils = PowerManagementUtils(this)
+        mdnsServiceRegistration = (applicationContext as MDNSServerApplication).getMDNSServiceRegistration()
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-        Log.d(TAG, "Starting MDNSWorker for $serviceName on port $port")
-
-        // Create notification channel
         createNotificationChannel()
+    }
 
-        // Set foreground
-        setForeground(createForegroundInfo(serviceName, port, ipAddress))
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null) return START_NOT_STICKY
 
-        // Acquire WakeLock
-        powerManagementUtils.acquireWakeLock()
+        when (intent.action) {
+            ACTION_START -> {
+                val port = intent.getIntExtra(KEY_PORT, 8080)
+                val ipAddress = intent.getStringExtra(KEY_IP_ADDRESS)
+                val serviceName = intent.getStringExtra(KEY_SERVICE_NAME) ?: "sillytavern"
 
-        try {
-            // Register initial service
-            registerService(port, ipAddress, serviceName)
-
-            // Register network callback
-            registerNetworkCallback(port, serviceName, ipAddress)
-
-            // Keep alive
-            awaitCancellation()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in MDNSWorker", e)
-            return Result.failure()
-        } finally {
-            Log.d(TAG, "Stopping MDNSWorker")
-            unregisterNetworkCallback()
-            mdnsServiceRegistration.unregisterAllServices()
-            powerManagementUtils.releaseWakeLock()
+                startForegroundService(serviceName, port, ipAddress)
+            }
+            ACTION_STOP -> {
+                stopForegroundService()
+            }
         }
 
-        return Result.success()
+        return START_NOT_STICKY
+    }
+
+    private fun startForegroundService(serviceName: String, port: Int, ipAddress: String?) {
+        Log.d(TAG, "Starting MDNSService for $serviceName on port $port")
+
+        val notification = createNotification(serviceName, port, ipAddress)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        if (!isStarted) {
+            powerManagementUtils.acquireWakeLock()
+            isStarted = true
+        }
+
+        serviceScope.launch(Dispatchers.IO) {
+             try {
+                // Register initial service
+                registerService(port, ipAddress, serviceName)
+                // Register network callback
+                registerNetworkCallback(port, serviceName, ipAddress)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting service", e)
+                stopForegroundService()
+            }
+        }
+    }
+
+    private fun stopForegroundService() {
+        Log.d(TAG, "Stopping MDNSService")
+        serviceScope.launch(Dispatchers.IO) {
+            unregisterNetworkCallback()
+            mdnsServiceRegistration.unregisterAllServices()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
+        // Ensure cleanup happens if destroyed by system
+        CoroutineScope(Dispatchers.IO).launch {
+             mdnsServiceRegistration.unregisterAllServices()
+        }
+        if (powerManagementUtils.isWakeLockHeld()) {
+            powerManagementUtils.releaseWakeLock()
+        }
+        isStarted = false
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
     }
 
     private suspend fun registerService(port: Int, ipAddress: String?, serviceName: String) {
-        if (isStopped) return
         mdnsServiceRegistration.registerCustomService(
             "_http._tcp.local.",
             serviceName,
@@ -97,32 +137,25 @@ class MDNSWorker(
             ipAddress
         )
 
-        // Report progress
+        // Update notification
         val currentIp = mdnsServiceRegistration.jmDNSInstance?.inetAddress?.hostAddress ?: ipAddress
-        setProgress(androidx.work.workDataOf(
-            KEY_IP_ADDRESS to currentIp,
-            KEY_PORT to port,
-            KEY_SERVICE_NAME to serviceName
-        ))
-
-        // Update notification to reflect current state (or IP changes)
         notificationManager.notify(NOTIFICATION_ID, createNotification(serviceName, port, currentIp))
     }
 
     private fun registerNetworkCallback(port: Int, serviceName: String, targetIp: String?) {
+        if (networkCallback != null) return // Already registered
+
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                if (isStopped) return
                 if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                    CoroutineScope(Dispatchers.IO).launch {
+                    serviceScope.launch(Dispatchers.IO) {
                         registerService(port, targetIp, serviceName)
                     }
                 }
             }
 
             override fun onLinkPropertiesChanged(network: Network, linkProperties: android.net.LinkProperties) {
-                if (isStopped) return
-                CoroutineScope(Dispatchers.IO).launch {
+                serviceScope.launch(Dispatchers.IO) {
                     registerService(port, targetIp, serviceName)
                 }
             }
@@ -168,17 +201,9 @@ class MDNSWorker(
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         return builder.build()
-    }
-
-    private fun createForegroundInfo(serviceName: String, port: Int, ipAddress: String?): ForegroundInfo {
-        val notification = createNotification(serviceName, port, ipAddress)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            ForegroundInfo(NOTIFICATION_ID, notification)
-        }
     }
 
     private fun createNotificationChannel() {
