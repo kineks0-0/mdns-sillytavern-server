@@ -25,10 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.kineks.mdnsserver.R
 import io.github.kineks.mdnsserver.ui.ServiceState
 import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
 
@@ -63,9 +65,9 @@ fun ServiceStatusScreen(
             if (serviceState is ServiceState.Running) {
                 val state = serviceState as ServiceState.Running
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    InfoCard(label = "Service Name", value = "${state.serviceName}.local")
-                    InfoCard(label = "IP Address", value = state.ip ?: "Auto")
-                    InfoCard(label = "Port", value = state.port.toString())
+                    InfoCard(label = stringResource(R.string.info_service_name), value = "${state.serviceName}.local")
+                    InfoCard(label = stringResource(R.string.info_ip_address), value = state.ip ?: stringResource(R.string.interface_auto))
+                    InfoCard(label = stringResource(R.string.info_port), value = state.port.toString())
                 }
             }
         }
@@ -89,7 +91,7 @@ fun ServiceStatusScreen(
             ) {
                 Icon(Icons.Default.PlayArrow, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Start Termux Command")
+                Text(stringResource(R.string.btn_start_termux))
             }
         }
 
@@ -109,12 +111,12 @@ fun ServiceStatusScreen(
     if (showTermuxDialog) {
         AlertDialog(
             onDismissRequest = { showTermuxDialog = false },
-            title = { Text("Termux Configuration") },
+            title = { Text(stringResource(R.string.termux_dialog_title)) },
             text = {
                 Column {
-                    Text("To use this feature, you must enable external app access in Termux.")
+                    Text(stringResource(R.string.termux_dialog_desc_1))
                     Spacer(Modifier.height(8.dp))
-                    Text("Run this command in Termux once:")
+                    Text(stringResource(R.string.termux_dialog_desc_2))
                     Spacer(Modifier.height(8.dp))
                     Card(modifier = Modifier
                         .fillMaxWidth()
@@ -134,15 +136,15 @@ fun ServiceStatusScreen(
                     showTermuxDialog = false
                     launchTermux(context, configState.termuxCommand)
                 }) {
-                    Text("I've done this")
+                    Text(stringResource(R.string.termux_btn_done))
                 }
             },
             dismissButton = {
                 TextButton(onClick = {
                     clipboardManager.setText(AnnotatedString("mkdir -p ~/.termux && echo \"allow-external-apps=true\" >> ~/.termux/termux.properties && termux-reload-settings"))
-                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, stringResource(R.string.termux_toast_copied), Toast.LENGTH_SHORT).show()
                 }) {
-                    Text("Copy Command")
+                    Text(stringResource(R.string.termux_btn_copy))
                 }
             }
         )
@@ -158,7 +160,7 @@ fun launchTermux(context: android.content.Context, command: String) {
         intent.putExtra("com.termux.action.RUN_COMMAND_BACKGROUND", false)
         context.startService(intent)
     } catch (e: Exception) {
-        Toast.makeText(context, "Failed to launch Termux: ${e.message}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.termux_toast_failed, e.message), Toast.LENGTH_LONG).show()
     }
 }
 
@@ -168,7 +170,7 @@ fun StatusCard(state: ServiceState) {
     val containerColor = if (isRunning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
     val contentColor = if (isRunning) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
     val icon = if (isRunning) Icons.Default.CheckCircle else Icons.Default.Error
-    val text = if (isRunning) "Active" else "Stopped"
+    val text = if (isRunning) stringResource(R.string.status_active) else stringResource(R.string.status_stopped)
 
     Card(
         colors = CardDefaults.cardColors(
@@ -226,7 +228,7 @@ fun InfoCard(label: String, value: String) {
 fun StartStopButton(isRunning: Boolean, onClick: () -> Unit) {
     val containerColor = if (isRunning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     val contentColor = if (isRunning) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
-    val text = if (isRunning) "Stop Server" else "Start Server"
+    val text = if (isRunning) stringResource(R.string.btn_stop_server) else stringResource(R.string.btn_start_server)
     val icon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow
 
     Button(

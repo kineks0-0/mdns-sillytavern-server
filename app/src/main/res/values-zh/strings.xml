@@ -1,0 +1,63 @@
+<resources>
+    <string name="app_name">ST mDNS 服务</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">主页</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">mDNS 服务通知</string>
+    <string name="notification_channel_desc">mDNS 服务的状态通知</string>
+    <string name="notification_title">mDNS 服务运行中</string>
+
+    <!-- Service Status Screen -->
+    <string name="status_active">运行中</string>
+    <string name="status_stopped">已停止</string>
+    <string name="info_service_name">服务名称</string>
+    <string name="info_ip_address">IP 地址</string>
+    <string name="info_port">端口</string>
+    <string name="btn_start_server">启动服务</string>
+    <string name="btn_stop_server">停止服务</string>
+    <string name="btn_start_termux">启动 Termux 指令</string>
+
+    <!-- Termux Dialog -->
+    <string name="termux_dialog_title">Termux 配置向导</string>
+    <string name="termux_dialog_desc_1">要使用此功能，您必须允许外部应用调用 Termux。</string>
+    <string name="termux_dialog_desc_2">请在 Termux 中运行一次以下命令：</string>
+    <string name="termux_btn_done">我已完成配置</string>
+    <string name="termux_btn_copy">复制命令</string>
+    <string name="termux_toast_copied">已复制到剪贴板</string>
+    <string name="termux_toast_failed">启动 Termux 失败: %1$s</string>
+
+    <!-- Configuration Screen -->
+    <string name="config_title">配置</string>
+    <string name="status_banner_active">服务正在运行。重启服务以应用更改。</string>
+    <string name="status_banner_stopped">服务已停止。更改将在下次启动时生效。</string>
+
+    <string name="section_general">常规设置</string>
+    <string name="label_service_name">服务名称</string>
+    <string name="desc_service_name">mDNS 服务的主机名 (例如 sillytavern)</string>
+    <string name="label_port">端口</string>
+    <string name="desc_port">广播端口号</string>
+
+    <string name="section_network">网络设置</string>
+    <string name="label_interface">网络接口</string>
+    <string name="interface_auto">自动 (默认)</string>
+    <string name="dialog_select_interface">选择网络接口</string>
+    <string name="btn_cancel">取消</string>
+
+    <string name="section_priority">接口优先级</string>
+    <string name="btn_add_priority">添加优先级规则</string>
+    <string name="dialog_add_prefix_title">添加接口前缀</string>
+    <string name="label_prefix">前缀 (例如 tun, eth)</string>
+    <string name="btn_add">添加</string>
+
+    <string name="section_termux">Termux 集成</string>
+    <string name="label_termux_command">Termux 指令</string>
+    <string name="desc_termux_command">在 Termux 中运行的命令 (例如 st)</string>
+    <string name="label_show_button">显示启动按钮</string>
+    <string name="desc_show_button">在主页显示“启动 Termux 指令”按钮</string>
+    <string name="label_reset_guide">重置向导</string>
+    <string name="desc_reset_guide">下次启动时再次显示 Termux 配置说明</string>
+    <string name="btn_reset">重置</string>
+</resources>

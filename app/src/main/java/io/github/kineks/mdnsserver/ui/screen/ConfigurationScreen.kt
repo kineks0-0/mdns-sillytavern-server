@@ -56,10 +56,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kineks.mdnsserver.NetworkInterfaceInfo
+import io.github.kineks.mdnsserver.R
 import io.github.kineks.mdnsserver.ui.ServiceState
 import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
 import java.util.Collections
@@ -103,7 +105,7 @@ fun ConfigurationScreen(
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "Configuration",
+                    text = stringResource(R.string.config_title),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -121,25 +123,25 @@ fun ConfigurationScreen(
             }
 
             item {
-                SettingsSectionTitle("General")
+                SettingsSectionTitle(stringResource(R.string.section_general))
             }
 
             item {
                 SettingsTextField(
-                    label = "Service Name",
+                    label = stringResource(R.string.label_service_name),
                     value = serviceNameInput,
                     onValueChange = {
                         serviceNameInput = it
                         save()
                     },
                     icon = Icons.Default.Info,
-                    description = "The hostname for the mDNS service (e.g. sillytavern)"
+                    description = stringResource(R.string.desc_service_name)
                 )
             }
 
             item {
                 SettingsTextField(
-                    label = "Port",
+                    label = stringResource(R.string.label_port),
                     value = portInput,
                     onValueChange = {
                         portInput = it
@@ -148,20 +150,20 @@ fun ConfigurationScreen(
                     },
                     icon = Icons.Default.Settings,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    description = "The port number to broadcast"
+                    description = stringResource(R.string.desc_port)
                 )
             }
 
             item {
-                SettingsSectionTitle("Network")
+                SettingsSectionTitle(stringResource(R.string.section_network))
             }
 
             item {
                 val currentInterface = availableInterfaces.find { it.ipAddress == configState.ipAddress }
-                val displayValue = currentInterface?.let { "${it.displayName} (${it.ipAddress})" } ?: "Auto (Default)"
+                val displayValue = currentInterface?.let { "${it.displayName} (${it.ipAddress})" } ?: stringResource(R.string.interface_auto)
 
                 SettingsItem(
-                    headline = "Network Interface",
+                    headline = stringResource(R.string.label_interface),
                     supporting = displayValue,
                     icon = Icons.Default.NetworkWifi,
                     onClick = { showInterfaceDialog = true }
@@ -209,7 +211,7 @@ fun StatusBanner(state: ServiceState) {
     val containerColor = if (isRunning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     val contentColor = if (isRunning) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     val icon = if (isRunning) Icons.Default.CheckCircle else Icons.Default.Warning
-    val text = if (isRunning) "Service is active. Restart to apply changes." else "Service is stopped. Changes will apply on start."
+    val text = if (isRunning) stringResource(R.string.status_banner_active) else stringResource(R.string.status_banner_stopped)
 
     Card(
         modifier = Modifier
@@ -260,22 +262,22 @@ fun TermuxSettingsSection(
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSectionTitle("Termux Integration")
+        SettingsSectionTitle(stringResource(R.string.section_termux))
 
         SettingsTextField(
-            label = "Termux Command",
+            label = stringResource(R.string.label_termux_command),
             value = commandInput,
             onValueChange = {
                 commandInput = it
                 onUpdate(it, showButton)
             },
             icon = Icons.Default.Code,
-            description = "Command to run in Termux (e.g. st)"
+            description = stringResource(R.string.desc_termux_command)
         )
 
         ListItem(
-            headlineContent = { Text("Show Start Button") },
-            supportingContent = { Text("Show 'Start Termux' button on Home screen") },
+            headlineContent = { Text(stringResource(R.string.label_show_button)) },
+            supportingContent = { Text(stringResource(R.string.desc_show_button)) },
             trailingContent = {
                 Switch(
                     checked = showButton,
@@ -285,11 +287,11 @@ fun TermuxSettingsSection(
         )
 
         ListItem(
-            headlineContent = { Text("Reset Setup Guide") },
-            supportingContent = { Text("Show the Termux setup instructions again next time") },
+            headlineContent = { Text(stringResource(R.string.label_reset_guide)) },
+            supportingContent = { Text(stringResource(R.string.desc_reset_guide)) },
             trailingContent = {
                 Button(onClick = onResetSetup) {
-                    Text("Reset")
+                    Text(stringResource(R.string.btn_reset))
                 }
             }
         )
@@ -304,7 +306,7 @@ fun PriorityListSection(
     var showAddDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsSectionTitle("Network Interface Priority")
+        SettingsSectionTitle(stringResource(R.string.section_priority))
 
         priorityList.forEachIndexed { index, item ->
             ListItem(
@@ -349,7 +351,7 @@ fun PriorityListSection(
         ) {
             Icon(Icons.Default.Add, null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Priority Rule")
+            Text(stringResource(R.string.btn_add_priority))
         }
     }
 
@@ -357,12 +359,12 @@ fun PriorityListSection(
         var text by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Add Interface Prefix") },
+            title = { Text(stringResource(R.string.dialog_add_prefix_title)) },
             text = {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Prefix (e.g. tun, eth)") },
+                    label = { Text(stringResource(R.string.label_prefix)) },
                     singleLine = true
                 )
             },
@@ -375,12 +377,12 @@ fun PriorityListSection(
                     }
                     showAddDialog = false
                 }) {
-                    Text("Add")
+                    Text(stringResource(R.string.btn_add))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -457,7 +459,7 @@ fun InterfaceSelectionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Network Interface") },
+        title = { Text(stringResource(R.string.dialog_select_interface)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // Auto Option
@@ -475,7 +477,7 @@ fun InterfaceSelectionDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "Auto (Default)",
+                            text = stringResource(R.string.interface_auto),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }

@@ -162,7 +162,7 @@ class MDNSWorker(
         )
 
         val builder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setContentTitle("mDNS Service Running")
+            .setContentTitle(applicationContext.getString(R.string.notification_title))
             .setContentText("$serviceName : $port ${ipAddress ?: ""}")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
@@ -185,10 +185,10 @@ class MDNSWorker(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "mDNS Service Channel",
+                applicationContext.getString(R.string.notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Notification channel for mDNS service"
+                description = applicationContext.getString(R.string.notification_channel_desc)
             }
             notificationManager.createNotificationChannel(channel)
         }

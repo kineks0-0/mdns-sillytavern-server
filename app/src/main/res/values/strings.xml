@@ -1,3 +1,63 @@
 <resources>
     <string name="app_name">ST mDNS Server</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">mDNS Service Channel</string>
+    <string name="notification_channel_desc">Notification channel for mDNS service</string>
+    <string name="notification_title">mDNS Service Running</string>
+
+    <!-- Service Status Screen -->
+    <string name="status_active">Active</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="info_service_name">Service Name</string>
+    <string name="info_ip_address">IP Address</string>
+    <string name="info_port">Port</string>
+    <string name="btn_start_server">Start Server</string>
+    <string name="btn_stop_server">Stop Server</string>
+    <string name="btn_start_termux">Start Termux Command</string>
+
+    <!-- Termux Dialog -->
+    <string name="termux_dialog_title">Termux Configuration</string>
+    <string name="termux_dialog_desc_1">To use this feature, you must enable external app access in Termux.</string>
+    <string name="termux_dialog_desc_2">Run this command in Termux once:</string>
+    <string name="termux_btn_done">I\'ve done this</string>
+    <string name="termux_btn_copy">Copy Command</string>
+    <string name="termux_toast_copied">Copied to clipboard</string>
+    <string name="termux_toast_failed">Failed to launch Termux: %1$s</string>
+
+    <!-- Configuration Screen -->
+    <string name="config_title">Configuration</string>
+    <string name="status_banner_active">Service is active. Restart to apply changes.</string>
+    <string name="status_banner_stopped">Service is stopped. Changes will apply on start.</string>
+
+    <string name="section_general">General</string>
+    <string name="label_service_name">Service Name</string>
+    <string name="desc_service_name">The hostname for the mDNS service (e.g. sillytavern)</string>
+    <string name="label_port">Port</string>
+    <string name="desc_port">The port number to broadcast</string>
+
+    <string name="section_network">Network</string>
+    <string name="label_interface">Network Interface</string>
+    <string name="interface_auto">Auto (Default)</string>
+    <string name="dialog_select_interface">Select Network Interface</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <string name="section_priority">Network Interface Priority</string>
+    <string name="btn_add_priority">Add Priority Rule</string>
+    <string name="dialog_add_prefix_title">Add Interface Prefix</string>
+    <string name="label_prefix">Prefix (e.g. tun, eth)</string>
+    <string name="btn_add">Add</string>
+
+    <string name="section_termux">Termux Integration</string>
+    <string name="label_termux_command">Termux Command</string>
+    <string name="desc_termux_command">Command to run in Termux (e.g. st)</string>
+    <string name="label_show_button">Show Start Button</string>
+    <string name="desc_show_button">Show \'Start Termux\' button on Home screen</string>
+    <string name="label_reset_guide">Reset Setup Guide</string>
+    <string name="desc_reset_guide">Show the Termux setup instructions again next time</string>
+    <string name="btn_reset">Reset</string>
 </resources>

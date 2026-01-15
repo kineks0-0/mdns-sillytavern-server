@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kineks.mdnsserver.ui.ServiceStatusViewModel
@@ -61,10 +62,10 @@ fun MdnsServerApp(
                     icon = {
                         Icon(
                             it.icon,
-                            contentDescription = it.label
+                            contentDescription = stringResource(it.labelRes)
                         )
                     },
-                    label = { Text(it.label) },
+                    label = { Text(stringResource(it.labelRes)) },
                     selected = it == currentDestination,
                     onClick = { currentDestination = it }
                 )
@@ -87,9 +88,9 @@ fun MdnsServerApp(
 }
 
 enum class AppDestinations(
-    val label: String,
+    val labelRes: Int,
     val icon: ImageVector,
 ) {
-    HOME("Home", Icons.Default.Home),
-    SETTINGS("Settings", Icons.Default.Settings),
+    HOME(R.string.nav_home, Icons.Default.Home),
+    SETTINGS(R.string.nav_settings, Icons.Default.Settings),
 }
