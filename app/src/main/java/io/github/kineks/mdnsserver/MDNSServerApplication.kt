@@ -31,10 +31,31 @@ class MDNSServerApplication : Application() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         return prefs.getString("last_used_ip", null)
     }
+
+    fun setLastUsedInterfaceIp(ip: String?) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        prefs.edit().putString("last_used_ip", ip).apply()
+    }
     
     // Get last used port
     fun getLastUsedPort(): Int {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         return prefs.getInt("last_used_port", 8080)
+    }
+
+    fun setLastUsedPort(port: Int) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        prefs.edit().putInt("last_used_port", port).apply()
+    }
+
+    // Get last used service name
+    fun getLastUsedServiceName(): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        return prefs.getString("last_used_service_name", "sillytavern") ?: "sillytavern"
+    }
+
+    fun setLastUsedServiceName(serviceName: String) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        prefs.edit().putString("last_used_service_name", serviceName).apply()
     }
 }

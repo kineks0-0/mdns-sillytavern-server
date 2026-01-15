@@ -51,7 +51,7 @@ fun ServiceStatusScreen(
             if (serviceState is ServiceState.Running) {
                 val state = serviceState as ServiceState.Running
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    InfoCard(label = "Service Name", value = "sillytavern.local")
+                    InfoCard(label = "Service Name", value = "${state.serviceName}.local")
                     InfoCard(label = "IP Address", value = state.ip ?: "Auto")
                     InfoCard(label = "Port", value = state.port.toString())
                 }

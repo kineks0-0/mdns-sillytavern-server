@@ -10,8 +10,11 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import io.github.kineks.mdnsserver.MDNSServerApplication
 import io.github.kineks.mdnsserver.MDNSWorker
+import io.github.kineks.mdnsserver.NetworkInterfaceInfo
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -27,16 +30,28 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
                 val progress = workInfo.progress
                 val ip = progress.getString(MDNSWorker.KEY_IP_ADDRESS)
                 val port = progress.getInt(MDNSWorker.KEY_PORT, 8080)
-                ServiceState.Running(ip, port)
+                val serviceName = progress.getString(MDNSWorker.KEY_SERVICE_NAME) ?: "sillytavern"
+                ServiceState.Running(ip, port, serviceName)
             } else {
                 ServiceState.Stopped
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
 
+    // Configuration state for UI
+    private val _configurationState = MutableStateFlow(
+        ConfigurationState(
+            ipAddress = mdnsApplication.getLastUsedInterfaceIp(),
+            port = mdnsApplication.getLastUsedPort(),
+            serviceName = mdnsApplication.getLastUsedServiceName()
+        )
+    )
+    val configurationState = _configurationState.asStateFlow()
+
     fun startServer() {
+        // Reload settings from prefs just in case, or trust the UI updated prefs via saveConfiguration
         val port = mdnsApplication.getLastUsedPort()
-        val serviceName = "sillytavern"
+        val serviceName = mdnsApplication.getLastUsedServiceName()
         val ipAddress = mdnsApplication.getLastUsedInterfaceIp()
 
         val data = workDataOf(
@@ -61,6 +76,18 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
         workManager.cancelUniqueWork(WORK_NAME)
     }
 
+    fun saveConfiguration(ip: String?, port: Int, serviceName: String) {
+        mdnsApplication.setLastUsedInterfaceIp(ip)
+        mdnsApplication.setLastUsedPort(port)
+        mdnsApplication.setLastUsedServiceName(serviceName)
+
+        _configurationState.value = ConfigurationState(ip, port, serviceName)
+    }
+
+    fun getAvailableInterfaces(): List<NetworkInterfaceInfo> {
+        return mdnsApplication.getMDNSServiceRegistration().getAvailableNetworkInterfaces()
+    }
+
     companion object {
         const val WORK_NAME = "mdns_service_work"
         const val WORK_TAG = "mdns_service"
@@ -69,5 +96,11 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
 
 sealed class ServiceState {
     data object Stopped : ServiceState()
-    data class Running(val ip: String?, val port: Int) : ServiceState()
+    data class Running(val ip: String?, val port: Int, val serviceName: String) : ServiceState()
 }
+
+data class ConfigurationState(
+    val ipAddress: String?,
+    val port: Int,
+    val serviceName: String
+)
