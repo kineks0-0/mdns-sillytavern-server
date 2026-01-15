@@ -334,7 +334,7 @@ fun InterfaceSelectionDialog(
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = interfaceInfo.ipAddress,
+                                text = interfaceInfo.ipAddress ?: "N/A",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
