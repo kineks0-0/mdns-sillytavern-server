@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -70,7 +71,7 @@ class MDNSService : Service() {
             }
         }
 
-        return START_NOT_STICKY
+        return START_REDELIVER_INTENT
     }
 
     private fun startForegroundService(serviceName: String, port: Int, ipAddress: String?) {
@@ -78,7 +79,7 @@ class MDNSService : Service() {
 
         val notification = createNotification(serviceName, port, ipAddress)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -93,7 +94,7 @@ class MDNSService : Service() {
                 // Register initial service
                 registerService(port, ipAddress, serviceName)
                 // Register network callback
-                registerNetworkCallback(port, serviceName, ipAddress)
+                //registerNetworkCallback(port, serviceName, ipAddress)
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting service", e)
                 stopForegroundService()
@@ -135,12 +136,17 @@ class MDNSService : Service() {
             "_http._tcp.local.",
             serviceName,
             port,
-            mapOf("path" to "/", "version" to "1.0", "service" to serviceName),
+            mapOf(
+                "path" to "/",
+                "version" to "1.0",
+                "service" to serviceName
+            ),
             ipAddress
         )
 
         // Update notification
-        val currentIp = mdnsServiceRegistration.jmDNSInstance?.inetAddress?.hostAddress ?: ipAddress
+        //val currentIp = mdnsServiceRegistration.jmDNSInstance?.inetAddress?.hostAddress ?: ipAddress
+        val currentIp = mdnsServiceRegistration.hostAddress ?: ipAddress
         notificationManager.notify(NOTIFICATION_ID, createNotification(serviceName, port, currentIp))
     }
 
@@ -159,8 +165,8 @@ class MDNSService : Service() {
 
             override fun onLinkPropertiesChanged(network: Network, linkProperties: android.net.LinkProperties) {
                 serviceScope.launch(Dispatchers.IO) {
-                    if (isStarted)
-                        registerService(port, targetIp, serviceName)
+                    //if (isStarted)
+                        //registerService(port, targetIp, serviceName)
                 }
             }
         }

@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.preference.ktx)
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
+    //implementation("com.appstractive:dns-sd-kt:1.0.5")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -30,7 +30,7 @@ class MDNSServiceRegistration {
     private val _isRunning = MutableStateFlow(false)
     val isRunning = _isRunning.asStateFlow()
 
-    val jmDNSInstance get() = jmDNS
+    val hostAddress get() = jmDNS?.inetAddress?.hostAddress
 
     /**
      * Register a custom service.
@@ -168,7 +168,4 @@ class MDNSServiceRegistration {
         }
     }
 
-    fun isInitialized(): Boolean {
-        return jmDNS != null
-    }
 }

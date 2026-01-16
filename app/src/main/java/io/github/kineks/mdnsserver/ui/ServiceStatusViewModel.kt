@@ -29,8 +29,9 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
 
                 ServiceState.Running("N/A", -1, "serviceName")
 
-                val jmdns = mdnsApplication.getMDNSServiceRegistration().jmDNSInstance
-                val ip = jmdns?.inetAddress?.hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
+                //val jmdns = mdnsApplication.getMDNSServiceRegistration().jmDNSInstance
+                //val ip = jmdns?.inetAddress?.hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
+                val ip = mdnsApplication.getMDNSServiceRegistration().hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
                 val port = mdnsApplication.getLastUsedPort() // This is approximate if changed while running but acceptable for now
                 val serviceName = mdnsApplication.getLastUsedServiceName()
 
