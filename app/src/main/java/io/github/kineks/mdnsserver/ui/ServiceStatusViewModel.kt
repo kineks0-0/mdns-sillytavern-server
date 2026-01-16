@@ -27,6 +27,8 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
                 // Ideally MDNSServiceRegistration would expose the current run config.
                 // However, MDNSServiceRegistration stores the JmDNS instance which has the address.
 
+                ServiceState.Running("N/A", -1, "serviceName")
+
                 val jmdns = mdnsApplication.getMDNSServiceRegistration().jmDNSInstance
                 val ip = jmdns?.inetAddress?.hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
                 val port = mdnsApplication.getLastUsedPort() // This is approximate if changed while running but acceptable for now

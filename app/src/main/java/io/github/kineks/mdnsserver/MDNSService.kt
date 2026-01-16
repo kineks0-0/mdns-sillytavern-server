@@ -104,9 +104,11 @@ class MDNSService : Service() {
     private fun stopForegroundService() {
         Log.d(TAG, "Stopping MDNSService")
         serviceScope.launch(Dispatchers.IO) {
+            isStarted = false
             unregisterNetworkCallback()
-            mdnsServiceRegistration.unregisterAllServices()
-            stopForeground(STOP_FOREGROUND_REMOVE)
+            //mdnsServiceRegistration.unregisterAllServices()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+                stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
@@ -146,17 +148,19 @@ class MDNSService : Service() {
         if (networkCallback != null) return // Already registered
 
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            /*override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
                 if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
                     serviceScope.launch(Dispatchers.IO) {
-                        registerService(port, targetIp, serviceName)
+                        if (isStarted)
+                            registerService(port, targetIp, serviceName)
                     }
                 }
-            }
+            }*/
 
             override fun onLinkPropertiesChanged(network: Network, linkProperties: android.net.LinkProperties) {
                 serviceScope.launch(Dispatchers.IO) {
-                    registerService(port, targetIp, serviceName)
+                    if (isStarted)
+                        registerService(port, targetIp, serviceName)
                 }
             }
         }

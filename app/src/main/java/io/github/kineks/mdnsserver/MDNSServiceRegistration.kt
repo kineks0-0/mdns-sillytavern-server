@@ -33,13 +33,6 @@ class MDNSServiceRegistration {
     val jmDNSInstance get() = jmDNS
 
     /**
-     * Register sillytavern.local service.
-     */
-    suspend fun registerSillyTavernService(port: Int, txtRecord: Map<String, String>? = null, ipAddress: String? = null) {
-        registerCustomService("_http._tcp.local.", "sillytavern", port, txtRecord, ipAddress)
-    }
-
-    /**
      * Register a custom service.
      */
     suspend fun registerCustomService(
@@ -101,8 +94,8 @@ class MDNSServiceRegistration {
     suspend fun unregisterAllServices() {
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                cleanupJmDNS()
                 _isRunning.value = false
+                cleanupJmDNS()
             }
         }
     }
