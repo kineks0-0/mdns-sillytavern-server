@@ -85,7 +85,7 @@ class MDNSService : Service() {
         }
 
         if (!isStarted) {
-            powerManagementUtils.acquireWakeLock()
+            powerManagementUtils.acquireLocks()
             isStarted = true
         }
 
@@ -121,8 +121,8 @@ class MDNSService : Service() {
         CoroutineScope(Dispatchers.IO).launch {
              mdnsServiceRegistration.unregisterAllServices()
         }
-        if (powerManagementUtils.isWakeLockHeld()) {
-            powerManagementUtils.releaseWakeLock()
+        if (powerManagementUtils.isLockHeld()) {
+            powerManagementUtils.releaseLocks()
         }
         isStarted = false
     }
