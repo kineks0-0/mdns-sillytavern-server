@@ -7,7 +7,7 @@ import android.util.Log
 
 class PowerManagementUtils(private val context: Context) {
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    private val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null

@@ -95,6 +95,7 @@ class MDNSService : Service() {
                 registerService(port, ipAddress, serviceName)
                 // Register network callback
                 //registerNetworkCallback(port, serviceName, ipAddress)
+                Log.d(TAG, "Registering service")
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting service", e)
                 stopForegroundService()

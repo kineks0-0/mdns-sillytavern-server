@@ -93,6 +93,7 @@ class MDNSServiceRegistration {
      */
     suspend fun unregisterAllServices() {
         mutex.withLock {
+            Log.d(TAG, "Unregistering all services")
             withContext(Dispatchers.IO) {
                 _isRunning.value = false
                 cleanupJmDNS()
