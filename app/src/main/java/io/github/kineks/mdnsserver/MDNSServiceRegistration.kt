@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 import javax.jmdns.JmDNS
@@ -133,7 +134,7 @@ class MDNSServiceRegistration {
                 val addresses = netInterface.inetAddresses
                 while (addresses.hasMoreElements()) {
                     val address = addresses.nextElement()
-                    if (address is Inet4Address && !address.isLoopbackAddress) {
+                    if ((address is Inet4Address || address is Inet6Address)&& !address.isLoopbackAddress) {
                         interfaces.add(
                             NetworkInterfaceInfo(
                                 displayName = netInterface.displayName ?: netInterface.name,
