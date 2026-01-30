@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -72,7 +73,7 @@ fun ServiceStatusScreen(
 
         // Action Button
         StartStopButton(
-            isRunning = serviceState is ServiceState.Running,
+            state = serviceState,
             onClick = {
                 if (serviceState is ServiceState.Running) {
                     viewModel.stopServer()
@@ -86,11 +87,32 @@ fun ServiceStatusScreen(
 
 @Composable
 fun StatusCard(state: ServiceState) {
-    val isRunning = state is ServiceState.Running
-    val containerColor = if (isRunning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-    val contentColor = if (isRunning) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-    val icon = if (isRunning) Icons.Default.CheckCircle else Icons.Default.Error
-    val text = if (isRunning) stringResource(R.string.status_active) else stringResource(R.string.status_stopped)
+    val containerColor = when (state) {
+        is ServiceState.Running -> MaterialTheme.colorScheme.primaryContainer
+        is ServiceState.Stopped -> MaterialTheme.colorScheme.errorContainer
+        is ServiceState.Starting -> MaterialTheme.colorScheme.tertiaryContainer
+        is ServiceState.Stopping -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val contentColor = when (state) {
+        is ServiceState.Running -> MaterialTheme.colorScheme.onPrimaryContainer
+        is ServiceState.Stopped -> MaterialTheme.colorScheme.onErrorContainer
+        is ServiceState.Starting -> MaterialTheme.colorScheme.onTertiaryContainer
+        is ServiceState.Stopping -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val icon = when (state) {
+        is ServiceState.Running -> Icons.Default.CheckCircle
+        is ServiceState.Stopped -> Icons.Default.Error
+        else -> Icons.Default.Refresh
+    }
+
+    val text = when (state) {
+        is ServiceState.Running -> stringResource(R.string.status_active)
+        is ServiceState.Stopped -> stringResource(R.string.status_stopped)
+        is ServiceState.Starting -> stringResource(R.string.status_starting)
+        is ServiceState.Stopping -> stringResource(R.string.status_stopping)
+    }
 
     Card(
         colors = CardDefaults.cardColors(
@@ -145,17 +167,43 @@ fun InfoCard(label: String, value: String) {
 }
 
 @Composable
-fun StartStopButton(isRunning: Boolean, onClick: () -> Unit) {
-    val containerColor = if (isRunning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    val contentColor = if (isRunning) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
-    val text = if (isRunning) stringResource(R.string.btn_stop_server) else stringResource(R.string.btn_start_server)
-    val icon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow
+fun StartStopButton(state: ServiceState, onClick: () -> Unit) {
+    val isRunning = state is ServiceState.Running
+    val isTransitioning = state is ServiceState.Starting || state is ServiceState.Stopping
+
+    val containerColor = when (state) {
+        is ServiceState.Running -> MaterialTheme.colorScheme.error
+        is ServiceState.Stopped -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val contentColor = when (state) {
+        is ServiceState.Running -> MaterialTheme.colorScheme.onError
+        is ServiceState.Stopped -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val text = when (state) {
+        is ServiceState.Running -> stringResource(R.string.btn_stop_server)
+        is ServiceState.Stopped -> stringResource(R.string.btn_start_server)
+        is ServiceState.Starting -> stringResource(R.string.btn_starting)
+        is ServiceState.Stopping -> stringResource(R.string.btn_stopping)
+    }
+
+    val icon = when (state) {
+        is ServiceState.Running -> Icons.Default.Stop
+        is ServiceState.Stopped -> Icons.Default.PlayArrow
+        else -> Icons.Default.Refresh
+    }
 
     Button(
         onClick = onClick,
+        enabled = !isTransitioning,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
-            contentColor = contentColor
+            contentColor = contentColor,
+            disabledContainerColor = containerColor.copy(alpha = 0.6f),
+            disabledContentColor = contentColor.copy(alpha = 0.6f)
         ),
         modifier = Modifier
             .fillMaxWidth()

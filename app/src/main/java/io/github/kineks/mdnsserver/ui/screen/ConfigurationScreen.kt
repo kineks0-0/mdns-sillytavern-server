@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NetworkWifi
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -194,11 +195,29 @@ fun ConfigurationScreen(
 
 @Composable
 fun StatusBanner(state: ServiceState) {
-    val isRunning = state is ServiceState.Running
-    val containerColor = if (isRunning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-    val contentColor = if (isRunning) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    val icon = if (isRunning) Icons.Default.CheckCircle else Icons.Default.Warning
-    val text = if (isRunning) stringResource(R.string.status_banner_active) else stringResource(R.string.status_banner_stopped)
+    val containerColor = when (state) {
+        is ServiceState.Running -> MaterialTheme.colorScheme.primaryContainer
+        is ServiceState.Stopped -> MaterialTheme.colorScheme.surfaceVariant
+        is ServiceState.Starting -> MaterialTheme.colorScheme.tertiaryContainer
+        is ServiceState.Stopping -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val contentColor = when (state) {
+        is ServiceState.Running -> MaterialTheme.colorScheme.onPrimaryContainer
+        is ServiceState.Stopped -> MaterialTheme.colorScheme.onSurfaceVariant
+        is ServiceState.Starting -> MaterialTheme.colorScheme.onTertiaryContainer
+        is ServiceState.Stopping -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val icon = when (state) {
+        is ServiceState.Running -> Icons.Default.CheckCircle
+        is ServiceState.Stopped -> Icons.Default.Warning
+        else -> Icons.Default.Refresh
+    }
+    val text = when (state) {
+        is ServiceState.Running -> stringResource(R.string.status_banner_active)
+        is ServiceState.Stopped -> stringResource(R.string.status_banner_stopped)
+        is ServiceState.Starting -> stringResource(R.string.status_banner_starting)
+        is ServiceState.Stopping -> stringResource(R.string.status_banner_stopping)
+    }
 
     Card(
         modifier = Modifier

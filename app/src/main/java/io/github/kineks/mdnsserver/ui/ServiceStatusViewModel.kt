@@ -12,35 +12,56 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class ServiceStatusViewModel(application: Application) : AndroidViewModel(application) {
     private val mdnsApplication = application as MDNSServerApplication
 
-    val serviceState: StateFlow<ServiceState> = mdnsApplication.getMDNSServiceRegistration().isRunning
-        .map { isRunning ->
-            if (isRunning) {
-                // Since we don't have direct access to the active IP/Port from the Service here easily without binding or shared prefs/bus,
-                // we fall back to the "last used" or re-querying registration if we exposed it.
-                // For now, assuming successful start uses the configured values is "okay" but strictly we should query the service.
-                // Ideally MDNSServiceRegistration would expose the current run config.
-                // However, MDNSServiceRegistration stores the JmDNS instance which has the address.
+    // null means no pending user action, follow actual state
+    private val _targetState = MutableStateFlow<Boolean?>(null)
 
-                ServiceState.Running("N/A", -1, "serviceName")
-
-                //val jmdns = mdnsApplication.getMDNSServiceRegistration().jmDNSInstance
-                //val ip = jmdns?.inetAddress?.hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
-                val ip = mdnsApplication.getMDNSServiceRegistration().hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
-                val port = mdnsApplication.getLastUsedPort() // This is approximate if changed while running but acceptable for now
-                val serviceName = mdnsApplication.getLastUsedServiceName()
-
-                ServiceState.Running(ip, port, serviceName)
-            } else {
-                ServiceState.Stopped
+    init {
+        viewModelScope.launch {
+            combine(
+                mdnsApplication.getMDNSServiceRegistration().isRunning,
+                _targetState
+            ) { isRunning, target ->
+                Pair(isRunning, target)
+            }.collect { (isRunning, target) ->
+                // If we reached the target state, reset the target so we don't get stuck
+                // (e.g. if service stops unexpectedly later, we want to show Stopped, not Starting)
+                if (target != null && target == isRunning) {
+                    _targetState.value = null
+                }
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
+    }
+
+    val serviceState: StateFlow<ServiceState> = combine(
+        mdnsApplication.getMDNSServiceRegistration().isRunning,
+        _targetState
+    ) { isRunning, target ->
+        val desired = target ?: isRunning
+
+        if (desired && !isRunning) {
+            ServiceState.Starting
+        } else if (!desired && isRunning) {
+            ServiceState.Stopping
+        } else if (isRunning) {
+            // Since we don't have direct access to the active IP/Port from the Service here easily without binding or shared prefs/bus,
+            // we fall back to the "last used" or re-querying registration if we exposed it.
+            val ip = mdnsApplication.getMDNSServiceRegistration().hostAddress ?: mdnsApplication.getLastUsedInterfaceIp()
+            val port = mdnsApplication.getLastUsedPort() // This is approximate if changed while running but acceptable for now
+            val serviceName = mdnsApplication.getLastUsedServiceName()
+
+            ServiceState.Running(ip, port, serviceName)
+        } else {
+            ServiceState.Stopped
+        }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ServiceState.Stopped)
 
     // Configuration state for UI
     private val _configurationState = MutableStateFlow(
@@ -54,6 +75,7 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
     val configurationState = _configurationState.asStateFlow()
 
     fun startServer() {
+        _targetState.value = true
         val port = mdnsApplication.getLastUsedPort()
         val serviceName = mdnsApplication.getLastUsedServiceName()
         val ipAddress = mdnsApplication.getLastUsedInterfaceIp()
@@ -69,6 +91,7 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun stopServer() {
+        _targetState.value = false
         val intent = Intent(getApplication(), MDNSService::class.java).apply {
             action = MDNSService.ACTION_STOP
         }
@@ -104,6 +127,8 @@ class ServiceStatusViewModel(application: Application) : AndroidViewModel(applic
 
 sealed class ServiceState {
     data object Stopped : ServiceState()
+    data object Starting : ServiceState()
+    data object Stopping : ServiceState()
     data class Running(val ip: String?, val port: Int, val serviceName: String) : ServiceState()
 }
 

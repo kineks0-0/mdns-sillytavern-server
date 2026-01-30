@@ -13,16 +13,22 @@
     <!-- Service Status Screen -->
     <string name="status_active">运行中</string>
     <string name="status_stopped">已停止</string>
+    <string name="status_starting">正在启动...</string>
+    <string name="status_stopping">正在停止...</string>
     <string name="info_service_name">服务名称</string>
     <string name="info_ip_address">IP 地址</string>
     <string name="info_port">端口</string>
     <string name="btn_start_server">启动服务</string>
     <string name="btn_stop_server">停止服务</string>
+    <string name="btn_starting">正在启动...</string>
+    <string name="btn_stopping">正在停止...</string>
 
     <!-- Configuration Screen -->
     <string name="config_title">配置</string>
     <string name="status_banner_active">服务正在运行。重启服务以应用更改。</string>
     <string name="status_banner_stopped">服务已停止。更改将在下次启动时生效。</string>
+    <string name="status_banner_starting">服务正在启动...</string>
+    <string name="status_banner_stopping">服务正在停止...</string>
 
     <string name="section_general">常规设置</string>
     <string name="label_service_name">服务名称</string>
