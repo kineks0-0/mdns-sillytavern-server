@@ -5,7 +5,7 @@ import android.net.wifi.WifiManager
 import android.os.PowerManager
 import android.util.Log
 
-class PowerManagementUtils(private val context: Context) {
+class PowerManagementUtils(context: Context) {
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
@@ -49,10 +49,14 @@ class PowerManagementUtils(private val context: Context) {
 
         if (wakeLock?.isHeld == false) {
             Log.d(TAG, "Acquiring wake lock (timeout: ${timeout ?: "infinite"})")
-            if (timeout != null) {
-                wakeLock!!.acquire(timeout)
-            } else {
-                wakeLock!!.acquire()
+            try {
+                if (timeout != null) {
+                    wakeLock!!.acquire(timeout)
+                } else {
+                    wakeLock!!.acquire()
+                }
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Failed to acquire wake lock: ${e.message}")
             }
         }
 

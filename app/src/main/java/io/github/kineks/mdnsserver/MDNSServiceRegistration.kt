@@ -2,9 +2,9 @@ package io.github.kineks.mdnsserver
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -28,12 +28,15 @@ data class NetworkInterfaceInfo(
 class MDNSServiceRegistration {
     private var jmDNS: JmDNS? = null
     private val mutex = Mutex()
-    private val TAG = "MDNSServiceRegistration"
-
+    
     private val _isRunning = MutableStateFlow(false)
     val isRunning = _isRunning.asStateFlow()
 
     val hostAddress get() = jmDNS?.inetAddress?.hostAddress
+
+    companion object {
+        private const val TAG = "MDNSServiceRegistration"
+    }
 
     /**
      * Register a custom service.
@@ -191,6 +194,8 @@ class MDNSServiceRegistration {
                         val closeStateMethod = JmDNSImpl::class.java.getDeclaredMethod("closeState")
                         closeStateMethod.isAccessible = true
                         closeStateMethod.invoke(impl)
+                        Log.e(TAG, "Error getting closeStateMethod: ${e.message}")
+                        e.printStackTrace()
                     }
 
                     // 2. Close the multicast socket (stops the original listener thread)
@@ -216,6 +221,8 @@ class MDNSServiceRegistration {
                         val recoverStateMethod = JmDNSImpl::class.java.getDeclaredMethod("recoverState")
                         recoverStateMethod.isAccessible = true
                         recoverStateMethod.invoke(impl)
+                        Log.e(TAG, "Error getting recoverStateMethod: ${e.message}")
+                        e.printStackTrace()
                     }
 
                     // 5. Inject and start the patched listener
