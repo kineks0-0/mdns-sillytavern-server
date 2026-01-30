@@ -15,6 +15,8 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import javax.jmdns.JmDNS
 import javax.jmdns.ServiceInfo
+import javax.jmdns.impl.JmDNSImpl
+import javax.jmdns.impl.PatchedSocketListener
 
 data class NetworkInterfaceInfo(
     val displayName: String,
@@ -61,6 +63,9 @@ class MDNSServiceRegistration {
                         jmDNS = runInterruptible {
                             JmDNS.create(inetAddress, serviceName)
                         }
+
+                        // Apply patch for Android Legacy Unicast Response
+                        jmDNS?.let { applyJmDNSPatch(it) }
 
                         val txtRecords = txtRecord ?: mapOf("path" to "/")
 
@@ -167,6 +172,64 @@ class MDNSServiceRegistration {
         } catch (e: Exception) {
             Log.e(TAG, "Error creating InetAddress from ${bestInterface.ipAddress}: ${e.message}")
             null
+        }
+    }
+
+    private fun applyJmDNSPatch(jmdnsInstance: JmDNS) {
+        try {
+            if (jmdnsInstance is JmDNSImpl) {
+                val impl = jmdnsInstance
+                synchronized(impl) {
+                    Log.i(TAG, "Applying JmDNS Legacy Unicast Patch...")
+
+                    // 1. Set state to CLOSING to prevent original listener from triggering recover()
+                    // Use reflection for robustness
+                    try {
+                        val closeStateMethod = JmDNSImpl::class.java.getMethod("closeState")
+                        closeStateMethod.invoke(impl)
+                    } catch (e: NoSuchMethodException) {
+                        val closeStateMethod = JmDNSImpl::class.java.getDeclaredMethod("closeState")
+                        closeStateMethod.isAccessible = true
+                        closeStateMethod.invoke(impl)
+                    }
+
+                    // 2. Close the multicast socket (stops the original listener thread)
+                    val closeSocketMethod = JmDNSImpl::class.java.getDeclaredMethod("closeMulticastSocket")
+                    closeSocketMethod.isAccessible = true
+                    closeSocketMethod.invoke(impl)
+
+                    // Get LocalHost via reflection to be safe
+                    val localHostField = JmDNSImpl::class.java.getDeclaredField("_localHost")
+                    localHostField.isAccessible = true
+                    val localHostObj = localHostField.get(impl)
+
+                    // 3. Re-open the multicast socket
+                    val openSocketMethod = JmDNSImpl::class.java.getDeclaredMethod("openMulticastSocket", localHostObj.javaClass)
+                    openSocketMethod.isAccessible = true
+                    openSocketMethod.invoke(impl, localHostObj)
+
+                    // 4. Recover state (back to PROBING/ANNOUNCED)
+                    try {
+                        val recoverStateMethod = JmDNSImpl::class.java.getMethod("recoverState")
+                        recoverStateMethod.invoke(impl)
+                    } catch (e: NoSuchMethodException) {
+                        val recoverStateMethod = JmDNSImpl::class.java.getDeclaredMethod("recoverState")
+                        recoverStateMethod.isAccessible = true
+                        recoverStateMethod.invoke(impl)
+                    }
+
+                    // 5. Inject and start the patched listener
+                    val listenerField = JmDNSImpl::class.java.getDeclaredField("_incomingListener")
+                    listenerField.isAccessible = true
+                    val patchedListener = PatchedSocketListener(impl)
+                    listenerField.set(impl, patchedListener)
+                    patchedListener.start()
+
+                    Log.i(TAG, "JmDNS Legacy Unicast Patch Applied Successfully")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply JmDNS patch", e)
         }
     }
 
